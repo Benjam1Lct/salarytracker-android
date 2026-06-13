@@ -81,16 +81,15 @@ fun StatsScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
-                ConnectionTag(
-                    status = connectionStatus,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-            }
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+                Column {
+                    ConnectionTag(
+                        status = connectionStatus,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text("ANALYSES", color = InkMuted, fontSize = 11.sp, letterSpacing = 1.2.sp)
                         Text(if (isHours) "Stats horaires" else "Stats salaire", color = Ink, fontSize = 24.sp, fontWeight = FontWeight.Bold)
@@ -100,6 +99,7 @@ fun StatsScreen(
                     SquareIconButton(Icons.Default.SwapHoriz, onClick = onSelectJob, active = true)
                 }
             }
+        }
 
             // ── Carte sombre fun : contrat / livret ──
             item {

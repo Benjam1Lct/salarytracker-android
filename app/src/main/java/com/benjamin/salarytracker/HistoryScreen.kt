@@ -65,15 +65,16 @@ fun HistoryScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 18.dp)
-                .padding(top = 18.dp, bottom = 100.dp), // space for bottom bar
+                .padding(top = 20.dp, bottom = 100.dp), // space for bottom bar
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             item {
-                ConnectionTag(status = connectionStatus, modifier = Modifier.padding(bottom = 12.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+                Column {
+                    ConnectionTag(status = connectionStatus, modifier = Modifier.padding(bottom = 12.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text("HISTORIQUE", color = InkMuted, fontSize = 11.sp, letterSpacing = 1.2.sp)
                         Text("Calendrier & Liste", color = Ink, fontSize = 24.sp, fontWeight = FontWeight.Bold)
@@ -83,6 +84,7 @@ fun HistoryScreen(
                     SquareIconButton(Icons.Default.SwapHoriz, onClick = onSelectJob, active = true)
                 }
                 Spacer(Modifier.height(16.dp))
+                }
             }
 
             // Calendar Card

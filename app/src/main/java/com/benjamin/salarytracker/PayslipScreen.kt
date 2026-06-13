@@ -72,11 +72,14 @@ fun PayslipScreen(
     Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).statusBarsPadding()) {
         Column(
             modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
-                .padding(horizontal = 18.dp).padding(top = 18.dp, bottom = 110.dp)
+                .padding(horizontal = 18.dp).padding(top = 20.dp, bottom = 110.dp)
         ) {
             ConnectionTag(status = connectionStatus, modifier = Modifier.padding(bottom = 12.dp))
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Column(Modifier.weight(1f)) {
                     Text("BULLETINS DE PAIE", color = InkMuted, fontSize = 11.sp, letterSpacing = 1.2.sp)
                     Text("Estimé vs Réel", color = Ink, fontSize = 24.sp, fontWeight = FontWeight.Bold)

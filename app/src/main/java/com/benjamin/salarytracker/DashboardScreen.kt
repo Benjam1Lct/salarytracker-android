@@ -63,12 +63,14 @@ fun DashboardScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
-                ConnectionTag(
-                    status = connectionStatus,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
+                Column {
+                    ConnectionTag(
+                        status = connectionStatus,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+                    HeaderBar(job, onSelectJob, onSettings)
+                }
             }
-            item { HeaderBar(job, onSelectJob, onSettings) }
 
             // Carte contrat — tout en haut, fond sombre
             if (job.endDate != null) {
