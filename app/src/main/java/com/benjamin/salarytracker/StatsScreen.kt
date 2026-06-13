@@ -90,16 +90,16 @@ fun StatsScreen(
                         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("ANALYSES", color = InkMuted, fontSize = 11.sp, letterSpacing = 1.2.sp)
-                        Text(if (isHours) "Stats horaires" else "Stats salaire", color = Ink, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("ANALYSES", color = InkMuted, fontSize = 11.sp, letterSpacing = 1.2.sp)
+                            Text(if (isHours) "Stats horaires" else "Stats salaire", color = Ink, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                        }
+                        SquareIconButton(Icons.Default.Settings, onClick = onSettings, active = false)
+                        Spacer(Modifier.width(10.dp))
+                        SquareIconButton(Icons.Default.SwapHoriz, onClick = onSelectJob, active = true)
                     }
-                    SquareIconButton(Icons.Default.Settings, onClick = onSettings, active = false)
-                    Spacer(Modifier.width(10.dp))
-                    SquareIconButton(Icons.Default.SwapHoriz, onClick = onSelectJob, active = true)
                 }
             }
-        }
 
             // ── Carte sombre fun : contrat / livret ──
             item {

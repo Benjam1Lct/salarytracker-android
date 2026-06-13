@@ -75,15 +75,15 @@ fun HistoryScreen(
                         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("HISTORIQUE", color = InkMuted, fontSize = 11.sp, letterSpacing = 1.2.sp)
-                        Text("Calendrier & Liste", color = Ink, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("HISTORIQUE", color = InkMuted, fontSize = 11.sp, letterSpacing = 1.2.sp)
+                            Text("Calendrier & Liste", color = Ink, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                        }
+                        SquareIconButton(Icons.Default.Settings, onClick = onSettings, active = false)
+                        Spacer(Modifier.width(10.dp))
+                        SquareIconButton(Icons.Default.SwapHoriz, onClick = onSelectJob, active = true)
                     }
-                    SquareIconButton(Icons.Default.Settings, onClick = onSettings, active = false)
-                    Spacer(Modifier.width(10.dp))
-                    SquareIconButton(Icons.Default.SwapHoriz, onClick = onSelectJob, active = true)
-                }
-                Spacer(Modifier.height(16.dp))
+                    Spacer(Modifier.height(16.dp))
                 }
             }
 
