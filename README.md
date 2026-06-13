@@ -8,15 +8,49 @@ L'application intègre l'Intelligence Artificielle (Gemini API) pour faciliter l
 
 ## 📸 Aperçu de l'application
 
-| | |
-|---|---|
-| <img src="media/app_dashboard.png" width="240"/> | **📊 Tableau de bord**<br/><br/>Votre hub central affichant la progression de votre contrat (jours, semaines et heures travaillées), une jauge animée de vos objectifs de gains mensuels et des actions rapides de saisie. |
-| **📅 Historique Interactif**<br/><br/>Calendrier mensuel interactif pour visualiser vos journées travaillées et vos congés. Naviguez de mois en mois et accédez à un résumé des saisies avec des raccourcis d'édition rapides. | <img src="media/app_history.png" width="240"/> |
-| <img src="media/app_auto.png" width="240"/> | **🤖 Saisie Automatique**<br/><br/>Configurez des règles intelligentes pour renseigner automatiquement vos heures récurrentes sur les journées cibles — sans aucune action manuelle répétitive. |
-| **📈 Statistiques Horaires**<br/><br/>Analysez votre répartition horaire sur plusieurs mois. Total des heures réelles, heures supplémentaires (crête) accumulées et solde du livret sous forme de graphe évolutif. | <img src="media/app_stats_hours.png" width="240"/> |
-| <img src="media/app_stats_salary.png" width="240"/> | **💵 Statistiques Financières**<br/><br/>Suivez vos gains nets cumulés estimés mois par mois et comparez en un clic vos estimations avec vos bulletins de paie importés pour détecter tout sous-paiement. |
-| **⚙️ Paramètres & Intelligence Artificielle**<br/><br/>Gérez vos préférences, configurez les rappels de saisie quotidiens et renseignez votre clé Gemini pour activer l'import intelligent de notes et de fiches de paie. | <img src="media/app_settings.png" width="240"/> |
-| <img src="media/app_selection.png" width="240"/> | **💼 Sélection Multi-Contrats**<br/><br/>Gérez plusieurs contrats cloisonnés. Changez de contexte à la volée depuis n'importe quel écran du dock. Les contrats archivés restent accessibles séparément. |
+<div align="center">
+  <img src="media/app_dashboard.png" width="30%" alt="Tableau de bord"/>
+  &nbsp;&nbsp;
+  <img src="media/app_history.png" width="30%" alt="Historique"/>
+  &nbsp;&nbsp;
+  <img src="media/app_auto.png" width="30%" alt="Automatisation"/>
+</div>
+
+<br/>
+
+📊 **Tableau de bord** — Hub central avec progression du contrat en cours, jauge animée des objectifs de gains mensuels et actions rapides de saisie.
+
+📅 **Historique Interactif** — Calendrier mensuel pour visualiser les journées travaillées et congés, avec résumé des saisies et raccourcis d'édition rapides.
+
+🤖 **Saisie Automatique** — Règles intelligentes pour renseigner automatiquement les heures récurrentes sur les journées cibles, sans action manuelle.
+
+---
+
+<div align="center">
+  <img src="media/app_stats_hours.png" width="30%" alt="Statistiques horaires"/>
+  &nbsp;&nbsp;
+  <img src="media/app_stats_salary.png" width="30%" alt="Statistiques financières"/>
+  &nbsp;&nbsp;
+  <img src="media/app_settings.png" width="30%" alt="Paramètres"/>
+</div>
+
+<br/>
+
+📈 **Statistiques Horaires** — Total des heures réelles travaillées, heures supplémentaires (crête) et solde du livret avec graphe évolutif sur plusieurs mois.
+
+💵 **Statistiques Financières** — Suivi des gains nets estimés et comparaison directe avec les bulletins de paie importés pour détecter tout sous-paiement.
+
+⚙️ **Paramètres & IA** — Préférences utilisateur, rappels quotidiens configurables et clé Gemini pour activer l'import intelligent de fiches de paie.
+
+---
+
+<div align="center">
+  <img src="media/app_selection.png" width="30%" alt="Sélection du contrat"/>
+</div>
+
+<br/>
+
+💼 **Multi-Contrats** — Gestion de plusieurs contrats cloisonnés avec changement de contexte à la volée depuis n'importe quel écran. Les contrats archivés restent accessibles séparément.
 
 ---
 
