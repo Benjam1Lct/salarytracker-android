@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style name="Theme.SalaryTracker" parent="android:Theme.Material.Light.NoActionBar">
+        <!-- Fond de fenêtre = splash thématisé (icône centrée) au lieu du blanc -->
+        <item name="android:windowBackground">@drawable/splash_screen</item>
+    </style>
+
+    <style name="Theme.SalaryTracker.Purple" parent="Theme.SalaryTracker">
+        <item name="android:windowBackground">@drawable/splash_screen_purple</item>
+    </style>
+
+    <style name="Theme.SalaryTracker.Blue" parent="Theme.SalaryTracker">
+        <item name="android:windowBackground">@drawable/splash_screen_blue</item>
+    </style>
+
+    <style name="Theme.SalaryTracker.Green" parent="Theme.SalaryTracker">
+        <item name="android:windowBackground">@drawable/splash_screen_green</item>
+    </style>
+
+    <style name="Theme.SalaryTracker.Orange" parent="Theme.SalaryTracker">
+        <item name="android:windowBackground">@drawable/splash_screen_orange</item>
+    </style>
+
+    <style name="Theme.SalaryTracker.Red" parent="Theme.SalaryTracker">
+        <item name="android:windowBackground">@drawable/splash_screen_red</item>
+    </style>
+
+    <style name="Theme.SalaryTracker.Pink" parent="Theme.SalaryTracker">
+        <item name="android:windowBackground">@drawable/splash_screen_pink</item>
+    </style>
+</resources>
