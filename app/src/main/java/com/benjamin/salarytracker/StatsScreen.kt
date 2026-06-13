@@ -8,6 +8,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.IosShare
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.ui.platform.LocalContext
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -45,7 +47,9 @@ fun StatsScreen(
     isRefreshing: Boolean = false,
     onRefresh: () -> Unit = {},
     onOpenPayslips: () -> Unit = {},
-    onImportFile: (Uri, onSuccess: (Int) -> Unit, onError: (String) -> Unit) -> Unit = { _, _, _ -> }
+    onImportFile: (Uri, onSuccess: (Int) -> Unit, onError: (String) -> Unit) -> Unit = { _, _, _ -> },
+    onSettings: () -> Unit,
+    onSelectJob: () -> Unit
 ) {
     val isHours = mode == "hours"
     val stats = SalaryCalculator.calculateMonthStats(job, entries, YearMonth.now())
@@ -83,9 +87,17 @@ fun StatsScreen(
                 )
             }
             item {
-                Column(Modifier.padding(vertical = 4.dp)) {
-                    Text("ANALYSES", color = InkMuted, fontSize = 11.sp, letterSpacing = 1.2.sp)
-                    Text(if (isHours) "Stats horaires" else "Stats salaire", color = Ink, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("ANALYSES - ${job.name.uppercase()}", color = InkMuted, fontSize = 11.sp, letterSpacing = 1.2.sp)
+                        Text(if (isHours) "Stats horaires" else "Stats salaire", color = Ink, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                    }
+                    SquareIconButton(Icons.Default.Settings, onClick = onSettings, active = false)
+                    Spacer(Modifier.width(10.dp))
+                    SquareIconButton(Icons.Default.SwapHoriz, onClick = onSelectJob, active = true)
                 }
             }
 

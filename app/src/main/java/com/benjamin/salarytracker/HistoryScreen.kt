@@ -12,6 +12,8 @@ import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.EventNote
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -35,7 +37,9 @@ fun HistoryScreen(
     entries: List<DayEntry>,
     connectionStatus: ConnectionStatus,
     onAddEntry: (LocalDate) -> Unit,
-    onEditEntry: (DayEntry) -> Unit
+    onEditEntry: (DayEntry) -> Unit,
+    onSettings: () -> Unit,
+    onSelectJob: () -> Unit
 ) {
     var selectedMonth by remember { mutableStateOf(YearMonth.now()) }
     val formatter = remember { DateTimeFormatter.ofPattern("MMMM yyyy", Locale.FRANCE) }
@@ -66,9 +70,17 @@ fun HistoryScreen(
         ) {
             item {
                 ConnectionTag(status = connectionStatus, modifier = Modifier.padding(bottom = 12.dp))
-                Column {
-                    Text("HISTORIQUE DES SAISIES", color = InkMuted, fontSize = 11.sp, letterSpacing = 1.2.sp)
-                    Text("Calendrier & Liste", color = Ink, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("HISTORIQUE - ${job.name.uppercase()}", color = InkMuted, fontSize = 11.sp, letterSpacing = 1.2.sp)
+                        Text("Calendrier & Liste", color = Ink, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                    }
+                    SquareIconButton(Icons.Default.Settings, onClick = onSettings, active = false)
+                    Spacer(Modifier.width(10.dp))
+                    SquareIconButton(Icons.Default.SwapHoriz, onClick = onSelectJob, active = true)
                 }
                 Spacer(Modifier.height(16.dp))
             }

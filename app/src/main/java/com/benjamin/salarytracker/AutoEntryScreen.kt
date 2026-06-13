@@ -40,11 +40,14 @@ import java.time.format.DateTimeFormatter
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AutoEntryScreen(
+    job: Job,
     templates: List<DayTemplate>,
     autoRules: List<AutoEntryRule>,
     connectionStatus: ConnectionStatus,
     onAddRule: (AutoEntryRule) -> Unit,
     onDeleteRule: (String) -> Unit,
+    onSettings: () -> Unit,
+    onSelectJob: () -> Unit,
     onBack: () -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -61,9 +64,17 @@ fun AutoEntryScreen(
             ConnectionTag(status = connectionStatus, modifier = Modifier.padding(bottom = 12.dp))
 
             Appear(0) {
-                Column(modifier = Modifier.padding(vertical = 6.dp)) {
-                    Text("AUTOMATISATION", color = InkMuted, fontSize = 11.sp, letterSpacing = 1.2.sp)
-                    Text("Saisie automatique", color = Ink, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("AUTOMATISATION - ${job.name.uppercase()}", color = InkMuted, fontSize = 11.sp, letterSpacing = 1.2.sp)
+                        Text("Saisie automatique", color = Ink, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                    }
+                    SquareIconButton(Icons.Default.Settings, onClick = onSettings, active = false)
+                    Spacer(Modifier.width(10.dp))
+                    SquareIconButton(Icons.Default.SwapHoriz, onClick = onSelectJob, active = true)
                 }
             }
 

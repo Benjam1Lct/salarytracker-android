@@ -414,7 +414,9 @@ fun SalaryTrackerApp(
                         onEditEntry = { entry ->
                             editingEntry = entry
                             navController.navigate("add_day")
-                        }
+                        },
+                        onSettings = { navController.navigate("settings") },
+                        onSelectJob = { navController.navigate("selection") }
                     )
                 }
             }
@@ -431,7 +433,9 @@ fun SalaryTrackerApp(
                         onOpenPayslips = { navController.navigate("payslips") },
                         onImportFile = { uri, onSuccess, onError ->
                             viewModel.importFile(context, uri, onSuccess, onError)
-                        }
+                        },
+                        onSettings = { navController.navigate("settings") },
+                        onSelectJob = { navController.navigate("selection") }
                     )
                 }
             }
@@ -466,20 +470,27 @@ fun SalaryTrackerApp(
                         onRefresh = { viewModel.refresh() },
                         onImportFile = { uri, onSuccess, onError ->
                             viewModel.importFile(context, uri, onSuccess, onError)
-                        }
+                        },
+                        onSettings = { navController.navigate("settings") },
+                        onSelectJob = { navController.navigate("selection") }
                     )
                 }
             }
 
             composable("auto_entry") {
-                AutoEntryScreen(
-                    templates = templates,
-                    autoRules = autoRules,
-                    connectionStatus = connectionStatus,
-                    onAddRule = { viewModel.addAutoRule(it) },
-                    onDeleteRule = { viewModel.deleteAutoRule(it) },
-                    onBack = { navController.popBackStack() }
-                )
+                currentJob?.let { job ->
+                    AutoEntryScreen(
+                        job = job,
+                        templates = templates,
+                        autoRules = autoRules,
+                        connectionStatus = connectionStatus,
+                        onAddRule = { viewModel.addAutoRule(it) },
+                        onDeleteRule = { viewModel.deleteAutoRule(it) },
+                        onSettings = { navController.navigate("settings") },
+                        onSelectJob = { navController.navigate("selection") },
+                        onBack = { navController.popBackStack() }
+                    )
+                }
             }
 
             composable(
