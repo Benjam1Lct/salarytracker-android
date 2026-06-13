@@ -69,7 +69,7 @@ fun AutoEntryScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("AUTOMATISATION - ${job.name.uppercase()}", color = InkMuted, fontSize = 11.sp, letterSpacing = 1.2.sp)
+                        Text("AUTOMATISATION", color = InkMuted, fontSize = 11.sp, letterSpacing = 1.2.sp)
                         Text("Saisie automatique", color = Ink, fontSize = 24.sp, fontWeight = FontWeight.Bold)
                     }
                     SquareIconButton(Icons.Default.Settings, onClick = onSettings, active = false)

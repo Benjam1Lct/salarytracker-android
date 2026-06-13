@@ -8,15 +8,15 @@ L'application intègre des technologies d'Intelligence Artificielle (Gemini API)
 
 ## 📸 Aperçu & Fonctionnalités de l'application
 
-| Écran / Fonctionnalité | Rendu Visuel |
-| :--- | :---: |
-| ### 📊 Tableau de Bord Général<br><br>Votre hub principal affichant la progression de votre contrat en cours (jours, semaines et heures réelles travaillées), vos objectifs de gains mensuels avec une jauge animée haut de gamme, et des actions rapides d'ajout. | <img src="media/app_dashboard.png" width="300" alt="Tableau de bord"/> |
-| ### 📅 Historique Interactif Dédié<br><br>Visualisez vos journées travaillées et vos congés sous forme de grille mensuelle interactive de style calendrier. Un résumé des saisies mensuelles est disponible sous la grille avec raccourcis d'édition rapides. | <img src="media/app_history.png" width="300" alt="Historique calendrier"/> |
-| ### 🤖 Saisie Automatique & Règles<br><br>Configurez des règles de génération intelligente pour renseigner automatiquement vos heures de travail récurrentes sur les journées cibles sans action manuelle répétitive. | <img src="media/app_auto.png" width="300" alt="Automatisation"/> |
-| ### 📈 Statistiques Horaires<br><br>Analysez votre répartition horaire au cours des derniers mois. Affiche le total de vos heures réelles travaillées, vos heures supplémentaires (crête) accumulées et le solde courant de votre livret d'heures. | <img src="media/app_stats_hours.png" width="300" alt="Analyses horaires"/> |
-| ### 💵 Statistiques Financières<br><br>Suivez vos gains nets cumulés estimés. L'application évalue vos revenus à venir et vous permet de comparer en un clic vos estimations avec vos bulletins de paie importés. | <img src="media/app_stats_salary.png" width="300" alt="Analyses salaire"/> |
-| ### ⚙️ Paramètres & Intelligence Artificielle<br><br>Gérez vos préférences utilisateur, changez l'icône de l'application, configurez les rappels de notifications quotidiens intelligents, ou renseignez votre clé API Gemini pour l'OCR intelligent de vos fiches de paie. | <img src="media/app_settings.png" width="300" alt="Paramètres de l'application"/> |
-| ### 💼 Sélection Multi-Contrats<br><br>Gérez l'ensemble de vos contrats actifs de façon cloisonnée. Les contrats passés ou terminés peuvent être facilement archivés d'un clic pour conserver une vue dégagée. | <img src="media/app_selection.png" width="300" alt="Choix du contrat"/> |
+| | |
+| :--- | :--- |
+| **📊 Tableau de Bord Général**<br><br>Votre hub principal affichant la progression de votre contrat en cours (jours, semaines et heures réelles travaillées), vos objectifs de gains mensuels avec une jauge animée haut de gamme, et des actions rapides d'ajout. | <img src="media/app_dashboard.png" width="260" alt="Tableau de bord"/> |
+| <img src="media/app_history.png" width="260" alt="Historique calendrier"/> | **📅 Historique Interactif Dédié**<br><br>Visualisez vos journées travaillées et vos congés sous forme de grille mensuelle interactive de style calendrier. Un résumé des saisies mensuelles est disponible sous la grille avec raccourcis d'édition rapides. |
+| **🤖 Saisie Automatique & Règles**<br><br>Configurez des règles de génération intelligente pour renseigner automatiquement vos heures de travail récurrentes sur les journées cibles sans action manuelle répétitive. | <img src="media/app_auto.png" width="260" alt="Automatisation"/> |
+| <img src="media/app_stats_hours.png" width="260" alt="Analyses horaires"/> | **📈 Statistiques Horaires**<br><br>Analysez votre répartition horaire au cours des derniers mois. Affiche le total de vos heures réelles travaillées, vos heures supplémentaires (crête) accumulées et le solde courant de votre livret d'heures. |
+| **💵 Statistiques Financières**<br><br>Suivez vos gains nets cumulés estimés. L'application évalue vos revenus à venir et vous permet de comparer en un clic vos estimations avec vos bulletins de paie importés. | <img src="media/app_stats_salary.png" width="260" alt="Analyses salaire"/> |
+| <img src="media/app_settings.png" width="260" alt="Paramètres de l'application"/> | **⚙️ Paramètres & Intelligence Artificielle**<br><br>Gérez vos préférences utilisateur, changez l'icône de l'application, configurez les rappels de notifications quotidiens de saisie, ou renseignez votre clé API Gemini pour l'import intelligent de vos notes et fiches de paie. |
+| **💼 Sélection Multi-Contrats**<br><br>Gérez l'ensemble de vos contrats actifs de façon cloisonnée. Changez de contrat à la volée depuis n'importe quel écran du dock, et créez de nouveaux jobs facilement. | <img src="media/app_selection.png" width="260" alt="Choix du contrat"/> |
 
 ---
 
@@ -33,7 +33,7 @@ L'application intègre des technologies d'Intelligence Artificielle (Gemini API)
 ## 📦 Compilation & Installation locale
 
 ### Prérequis
-- Java JDK 17+
+- Java JDK 17+ (par ex. configuré via Android Studio JBR)
 - Android SDK (API 26+)
 
 ### Compiler l'APK de Test (Optimisé)

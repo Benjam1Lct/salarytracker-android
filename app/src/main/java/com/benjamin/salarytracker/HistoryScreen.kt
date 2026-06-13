@@ -75,7 +75,7 @@ fun HistoryScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("HISTORIQUE - ${job.name.uppercase()}", color = InkMuted, fontSize = 11.sp, letterSpacing = 1.2.sp)
+                        Text("HISTORIQUE", color = InkMuted, fontSize = 11.sp, letterSpacing = 1.2.sp)
                         Text("Calendrier & Liste", color = Ink, fontSize = 24.sp, fontWeight = FontWeight.Bold)
                     }
                     SquareIconButton(Icons.Default.Settings, onClick = onSettings, active = false)
