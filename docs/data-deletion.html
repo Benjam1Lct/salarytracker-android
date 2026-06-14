@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SalaryTracker — Suppression des données</title>
+  <style>
+    :root { --accent:#8B7CF6; --ink:#1f2430; --muted:#6b7280; --bg:#f7f7fb; --card:#ffffff; --outline:#e5e7eb; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; background:var(--bg); color:var(--ink); line-height:1.65; }
+    .wrap { max-width:760px; margin:0 auto; padding:48px 20px 80px; }
+    a { color:var(--accent); }
+    h1 { font-size:28px; margin-bottom:4px; }
+    h2 { font-size:19px; margin-top:32px; }
+    .muted { color:var(--muted); }
+    .card { background:var(--card); border:1px solid var(--outline); border-radius:16px; padding:18px 22px; margin-top:14px; }
+    ol { padding-left:20px; }
+    li { margin:8px 0; }
+    .back { display:inline-block; margin-bottom:24px; text-decoration:none; color:var(--muted); font-size:14px; }
+    code { background:#eef0f5; padding:2px 6px; border-radius:6px; font-size:13px; }
+    .note { background:#f3f0ff; border:1px solid #ddd6fe; border-radius:12px; padding:14px 18px; margin-top:18px; font-size:14px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <a class="back" href="index.html">← Retour</a>
+    <h1>Suppression des données</h1>
+    <p class="muted">Application : SalaryTracker</p>
+
+    <p>Vous pouvez supprimer définitivement votre compte et l'intégralité de vos données à tout moment.
+      Deux méthodes sont possibles.</p>
+
+    <h2>Méthode 1 — Directement dans l'application (recommandé, immédiat)</h2>
+    <div class="card">
+      <ol>
+        <li>Ouvrez SalaryTracker et connectez-vous.</li>
+        <li>Allez dans <code>Paramètres</code> (icône en haut de l'écran).</li>
+        <li>Dans la section <strong>Profil &amp; Compte</strong>, appuyez sur <strong>« Supprimer mon compte »</strong>.</li>
+        <li>Confirmez. Vos données sont effacées immédiatement et vous êtes redirigé vers l'écran de connexion.</li>
+      </ol>
+    </div>
+
+    <h2>Méthode 2 — Par e-mail</h2>
+    <p>Si vous n'avez plus accès à l'application, envoyez une demande à
+      <a href="mailto:benjaminlecomte37@gmail.com?subject=Suppression%20de%20mes%20donn%C3%A9es%20SalaryTracker">benjaminlecomte37@gmail.com</a>
+      en indiquant l'adresse e-mail ou le numéro de téléphone associé à votre compte. La suppression sera
+      effectuée sous 30 jours.</p>
+
+    <h2>Données supprimées</h2>
+    <p>La suppression efface définitivement :</p>
+    <ul>
+      <li>votre compte d'authentification (Google / Facebook / téléphone) ;</li>
+      <li>tous vos emplois, contrats, journées de travail et horaires types ;</li>
+      <li>vos règles de saisie automatique et bulletins de paie importés ;</li>
+      <li>votre éventuelle clé API Gemini enregistrée.</li>
+    </ul>
+
+    <div class="note">
+      ⚠️ La suppression est <strong>irréversible</strong>. Une fois effectuée, les données ne peuvent pas être récupérées.
+    </div>
+
+    <h2>Contact</h2>
+    <p><a href="mailto:benjaminlecomte37@gmail.com">benjaminlecomte37@gmail.com</a></p>
+  </div>
+</body>
+</html>
