@@ -94,21 +94,57 @@ fun SalaryTrackerApp(
     val currentRoute = navBackStackEntry?.destination?.route
 
     val jobs by viewModel.jobs.collectAsStateWithLifecycle()
+    val companies by viewModel.companies.collectAsStateWithLifecycle()
     val currentJob by viewModel.currentJob.collectAsStateWithLifecycle()
     val entries by viewModel.entries.collectAsStateWithLifecycle()
     val templates by viewModel.templates.collectAsStateWithLifecycle()
     val currentJobId by viewModel.currentJobId.collectAsStateWithLifecycle()
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
+    val importStatus by viewModel.importStatus.collectAsStateWithLifecycle()
+    val updateRequired by viewModel.updateRequired.collectAsStateWithLifecycle()
     val autoRules by viewModel.autoRules.collectAsStateWithLifecycle()
     val payslips by viewModel.payslips.collectAsStateWithLifecycle()
     val connectionStatus by viewModel.connectionStatus.collectAsStateWithLifecycle()
     val userSession by viewModel.userSession.collectAsStateWithLifecycle()
     val geminiApiKey by viewModel.geminiApiKey.collectAsStateWithLifecycle()
+    val useLocalAi by viewModel.useLocalAi.collectAsStateWithLifecycle()
     val dailyReminderEnabled by viewModel.dailyReminderEnabled.collectAsStateWithLifecycle()
     val dailyReminderHour by viewModel.dailyReminderHour.collectAsStateWithLifecycle()
     val dailyReminderMinute by viewModel.dailyReminderMinute.collectAsStateWithLifecycle()
 
+    // Modal configuration clé Gemini — affichée quand l'utilisateur tente d'utiliser l'IA sans clé
+    var showGeminiKeyModal by remember { mutableStateOf(false) }
+
+    // Pré-remplissage lors de l'ajout d'un contrat rattaché à une entreprise existante
+    // (companyId, companyName). null = création normale.
+    var contractPreset by remember { mutableStateOf<Pair<String, String>?>(null) }
+
+    // Dialog de création d'entreprise
+    var showCreateCompany by remember { mutableStateOf(false) }
+
     val context = androidx.compose.ui.platform.LocalContext.current
+
+    // Export des données locales (sauvegarde)
+    val exportDataLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/octet-stream")
+    ) { uri: Uri? ->
+        uri?.let {
+            viewModel.exportLocalData(context, it) { ok ->
+                Toast.makeText(context, if (ok) "Données sauvegardées ✓" else "Échec de la sauvegarde", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    // Import d'une sauvegarde locale (depuis l'écran de connexion)
+    val importDataLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            viewModel.importLocalData(context, it) { ok ->
+                Toast.makeText(context, if (ok) "Données importées ✓" else "Fichier de sauvegarde invalide", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
 
     val requestPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -117,6 +153,24 @@ fun SalaryTrackerApp(
             viewModel.setDailyReminder(context, true)
         } else {
             Toast.makeText(context, "Permission refusée : les rappels ne s'afficheront pas.", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    // Première ouverture : demande la permission de notification et active le rappel quotidien.
+    LaunchedEffect(Unit) {
+        val prefs = context.getSharedPreferences("salary_tracker_prefs", android.content.Context.MODE_PRIVATE)
+        if (!prefs.getBoolean("asked_notif_permission", false)) {
+            prefs.edit().putBoolean("asked_notif_permission", true).apply()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                if (context.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
+                    viewModel.setDailyReminder(context, true)
+                } else {
+                    // Le callback du launcher active le rappel si l'utilisateur accepte.
+                    requestPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                }
+            } else {
+                viewModel.setDailyReminder(context, true)
+            }
         }
     }
 
@@ -136,6 +190,17 @@ fun SalaryTrackerApp(
     var googleErrorCode by remember { mutableStateOf("") }
     var googleErrorMessage by remember { mutableStateOf("") }
 
+    // ─── État Phone OTP ──────────────────────────────────────────────────
+    var phoneOtpState: PhoneOtpState by remember { mutableStateOf(PhoneOtpState.Idle) }
+
+    // ─── Liaison de comptes (account linking) ─────────────────────────────
+    var linkedProviders by remember { mutableStateOf(viewModel.linkedProviderIds()) }
+    var googleAuthMode by remember { mutableStateOf("signin") } // "signin" | "link"
+
+    val refreshProviders = { linkedProviders = viewModel.linkedProviderIds() }
+    // Rafraîchit la liste des méthodes liées dès qu'une session est active
+    LaunchedEffect(userSession) { if (userSession != null) linkedProviders = viewModel.linkedProviderIds() }
+
     val googleSignInLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -146,6 +211,24 @@ fun SalaryTrackerApp(
             val displayName = account.displayName ?: "Utilisateur Google"
             val photoUrl = account.photoUrl?.toString()
             val idToken = account.idToken
+
+            // Mode liaison : on rattache Google au compte déjà connecté.
+            if (googleAuthMode == "link") {
+                googleAuthMode = "signin"
+                if (idToken != null) {
+                    viewModel.linkWithGoogle(idToken) { ok, err ->
+                        refreshProviders()
+                        Toast.makeText(
+                            context,
+                            if (ok) "Compte Google lié ✓" else (err ?: "Échec de la liaison Google."),
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                } else {
+                    Toast.makeText(context, "Jeton Google manquant.", Toast.LENGTH_SHORT).show()
+                }
+                return@rememberLauncherForActivityResult
+            }
 
             if (idToken != null) {
                 val credential = com.google.firebase.auth.GoogleAuthProvider.getCredential(idToken, null)
@@ -241,6 +324,113 @@ fun SalaryTrackerApp(
         }
     }
 
+    // Lance le sélecteur Google en mode LIAISON (pas de connexion, pas d'écran "CONNECTING").
+    val triggerGoogleLink: () -> Unit = {
+        googleAuthMode = "link"
+        try {
+            val builder = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                .requestEmail()
+                .requestProfile()
+            val resId = context.resources.getIdentifier("default_web_client_id", "string", context.packageName)
+            if (resId != 0) {
+                val webClientId = context.getString(resId)
+                if (webClientId.isNotBlank()) builder.requestIdToken(webClientId)
+            }
+            val activity = context.findActivity()
+            if (activity != null) {
+                val client = GoogleSignIn.getClient(activity, builder.build())
+                // Déconnecte le client pour forcer le choix d'un compte à lier
+                client.signOut().addOnCompleteListener {
+                    googleSignInLauncher.launch(client.signInIntent)
+                }
+            } else {
+                googleAuthMode = "signin"
+                Toast.makeText(context, "Contexte d'activité indisponible.", Toast.LENGTH_SHORT).show()
+            }
+        } catch (e: Exception) {
+            googleAuthMode = "signin"
+            Toast.makeText(context, "Erreur Google : ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+
+
+
+
+    // ─── Phone OTP handler ─────────────────────────────────────────────
+    val sendPhoneCode: (String) -> Unit = { phoneNumber ->
+        phoneOtpState = PhoneOtpState.SendingCode
+        val activity = context.findActivity()
+        if (activity != null) {
+            val callbacks = object : com.google.firebase.auth.PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
+                override fun onVerificationCompleted(credential: com.google.firebase.auth.PhoneAuthCredential) {
+                    // Verification automatique (SMS auto-fill)
+                    com.google.firebase.auth.FirebaseAuth.getInstance()
+                        .signInWithCredential(credential)
+                        .addOnCompleteListener { task ->
+                            if (task.isSuccessful) {
+                                val user = task.result?.user
+                                scope.launch {
+                                    loginStatus = "SUCCESS"
+                                    delay(1200)
+                                    if (user != null) viewModel.loginWithPhone(user.uid, phoneNumber)
+                                    loginStatus = "IDLE"
+                                    phoneOtpState = PhoneOtpState.Idle
+                                }
+                            } else {
+                                phoneOtpState = PhoneOtpState.Error("Verification automatique échouée")
+                            }
+                        }
+                }
+
+                override fun onVerificationFailed(e: com.google.firebase.FirebaseException) {
+                    phoneOtpState = PhoneOtpState.Error(e.message ?: "Erreur de verification téléphone")
+                }
+
+                override fun onCodeSent(verificationId: String, token: com.google.firebase.auth.PhoneAuthProvider.ForceResendingToken) {
+                    viewModel.phoneVerificationId = verificationId
+                    phoneOtpState = PhoneOtpState.WaitingForCode(phoneNumber)
+                }
+            }
+
+            val options = com.google.firebase.auth.PhoneAuthOptions.newBuilder(com.google.firebase.auth.FirebaseAuth.getInstance())
+                .setPhoneNumber(normalizeFrPhone(phoneNumber))
+                .setTimeout(60L, java.util.concurrent.TimeUnit.SECONDS)
+                .setActivity(activity)
+                .setCallbacks(callbacks)
+                .build()
+            com.google.firebase.auth.PhoneAuthProvider.verifyPhoneNumber(options)
+        } else {
+            phoneOtpState = PhoneOtpState.Error("Impossible d'accéder à l'activité")
+        }
+    }
+
+    val verifyOtpCode: (String) -> Unit = { code ->
+        val verificationId = viewModel.phoneVerificationId
+        if (verificationId != null) {
+            phoneOtpState = PhoneOtpState.VerifyingCode
+            val credential = com.google.firebase.auth.PhoneAuthProvider.getCredential(verificationId, code)
+            com.google.firebase.auth.FirebaseAuth.getInstance()
+                .signInWithCredential(credential)
+                .addOnCompleteListener { task ->
+                    if (task.isSuccessful) {
+                        val user = task.result?.user
+                        scope.launch {
+                            loginStatus = "SUCCESS"
+                            delay(1200)
+                            if (user != null) viewModel.loginWithPhone(user.uid, user.phoneNumber ?: "")
+                            loginStatus = "IDLE"
+                            phoneOtpState = PhoneOtpState.Idle
+                        }
+                    } else {
+                        phoneOtpState = PhoneOtpState.Error(task.exception?.message ?: "Code incorrect")
+                    }
+                }
+        } else {
+            phoneOtpState = PhoneOtpState.Error("ID de vérification manquant. Renvoyez le code.")
+        }
+    }
+
     // Rattrapage de la saisie auto dès que règles + templates sont chargés
     LaunchedEffect(currentJobId, autoRules, templates) {
         if (autoRules.any { it.active } && templates.isNotEmpty()) {
@@ -261,6 +451,19 @@ fun SalaryTrackerApp(
     }
 
     var editingEntry by remember { mutableStateOf<DayEntry?>(null) }
+
+    // Blocage de version : écran dédié, le reste de l'app est inaccessible.
+    if (updateRequired) {
+        val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
+        UpdateRequiredScreen(
+            isLocalAccount = userSession?.isLocal == true,
+            onOpenGithub = {
+                try { uriHandler.openUri("https://github.com/Benjam1Lct/salarytracker-android/releases") } catch (_: Exception) {}
+            },
+            onDownloadData = { exportDataLauncher.launch("salarytracker_backup.dat") }
+        )
+        return
+    }
 
     Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         NavHost(
@@ -324,14 +527,54 @@ fun SalaryTrackerApp(
                 LoginScreen(
                     loginStatus = loginStatus,
                     onGoogleSignInClick = { triggerGoogleSignIn() },
-                    onMockSignInClick = { name ->
+                    onPhoneSignInClick = { phone -> sendPhoneCode(phone) },
+                    onVerifyOtp = { code -> verifyOtpCode(code) },
+                    phoneOtpState = phoneOtpState,
+                    onLocalSignInClick = { name ->
                         scope.launch {
                             loginStatus = "CONNECTING"
-                            delay(1000)
+                            delay(800)
                             loginStatus = "SUCCESS"
-                            delay(1200)
-                            viewModel.loginMock(name)
+                            delay(1000)
+                            viewModel.loginLocal(name)
                             loginStatus = "IDLE"
+                        }
+                    },
+                    onImportData = { importDataLauncher.launch("*/*") },
+                    onEmailSignIn = { email, password, onResult ->
+                        scope.launch {
+                            loginStatus = "CONNECTING"
+                            viewModel.signInWithEmailAndPassword(email, password) { success, err ->
+                                if (success) {
+                                    loginStatus = "SUCCESS"
+                                    scope.launch {
+                                        delay(1000)
+                                        loginStatus = "IDLE"
+                                    }
+                                    onResult(true, null)
+                                } else {
+                                    loginStatus = "IDLE"
+                                    onResult(false, err)
+                                }
+                            }
+                        }
+                    },
+                    onEmailSignUp = { email, password, onResult ->
+                        scope.launch {
+                            loginStatus = "CONNECTING"
+                            viewModel.signUpWithEmailAndPassword(email, password) { success, err ->
+                                if (success) {
+                                    loginStatus = "SUCCESS"
+                                    scope.launch {
+                                        delay(1000)
+                                        loginStatus = "IDLE"
+                                    }
+                                    onResult(true, null)
+                                } else {
+                                    loginStatus = "IDLE"
+                                    onResult(false, err)
+                                }
+                            }
                         }
                     }
                 )
@@ -389,7 +632,9 @@ fun SalaryTrackerApp(
                             }
                         },
                         isRefreshing = isRefreshing,
-                        onRefresh = { viewModel.refresh() }
+                        onRefresh = { viewModel.refresh() },
+                        importStatus = importStatus,
+                        onDismissImport = { viewModel.clearImportStatus() }
                     )
                 }
             }
@@ -432,7 +677,7 @@ fun SalaryTrackerApp(
                         onRefresh = { viewModel.refresh() },
                         onOpenPayslips = { navController.navigate("payslips") },
                         onImportFile = { uri, onSuccess, onError ->
-                            viewModel.importFile(context, uri, onSuccess, onError)
+                            viewModel.importFile(context, uri, onSuccess, onError) { showGeminiKeyModal = true }
                         },
                         onSettings = { navController.navigate("settings") },
                         onSelectJob = { navController.navigate("selection") }
@@ -452,6 +697,8 @@ fun SalaryTrackerApp(
                         payslips = payslips,
                         connectionStatus = connectionStatus,
                         geminiApiKey = geminiApiKey,
+                        useLocalAi = useLocalAi,
+                        onNeedGeminiKey = { showGeminiKeyModal = true },
                         onAddPayslip = { viewModel.addPayslip(it) },
                         onDeletePayslip = { viewModel.deletePayslip(it) },
                         onBack = { navController.popBackStack() }
@@ -469,7 +716,7 @@ fun SalaryTrackerApp(
                         isRefreshing = isRefreshing,
                         onRefresh = { viewModel.refresh() },
                         onImportFile = { uri, onSuccess, onError ->
-                            viewModel.importFile(context, uri, onSuccess, onError)
+                            viewModel.importFile(context, uri, onSuccess, onError) { showGeminiKeyModal = true }
                         },
                         onSettings = { navController.navigate("settings") },
                         onSelectJob = { navController.navigate("selection") }
@@ -500,15 +747,23 @@ fun SalaryTrackerApp(
             ) {
                 JobSelectionScreen(
                     jobs = jobs,
+                    companies = companies,
                     selectedJobId = currentJobId ?: "",
                     onJobSelect = {
                         viewModel.selectJob(it.id)
                         navController.navigate("dashboard") { popUpTo("selection") { inclusive = true } }
                     },
                     onToggleMainJob = { viewModel.setMainJob(it) },
-                    onAddJob = { navController.navigate("create_job") },
+                    onAddJob = { contractPreset = null; navController.navigate("create_job") },
                     onEditJob = { navController.navigate("edit_job/${it.id}") },
-                    onBack = { if (jobs.isNotEmpty()) navController.popBackStack() }
+                    onAddContractToCompany = { companyId, companyName ->
+                        contractPreset = companyId to companyName
+                        navController.navigate("create_job")
+                    },
+                    onDeleteJob = { viewModel.deleteJob(it) },
+                    onAddCompany = { showCreateCompany = true },
+                    onDeleteCompany = { viewModel.deleteCompany(it) },
+                    onBack = { if (jobs.isNotEmpty() || companies.isNotEmpty()) navController.popBackStack() }
                 )
             }
 
@@ -526,7 +781,24 @@ fun SalaryTrackerApp(
                         onDeleteEntry = { viewModel.deleteDayEntry(it) },
                         onManageTemplates = { navController.navigate("manage_templates") },
                         onImportFile = { uri, onSuccess, onError ->
-                            viewModel.importFile(context, uri, onSuccess, onError)
+                            viewModel.importFile(
+                                context = context,
+                                uri = uri,
+                                onSuccess = { count ->
+                                    onSuccess(count)
+                                    // Navigation directe vers l'historique une fois l'importation réussie
+                                    navController.navigate("history") {
+                                        popUpTo("dashboard") { inclusive = false }
+                                    }
+                                },
+                                onError = onError,
+                                onNeedAiChoice = { showGeminiKeyModal = true }
+                            )
+                            // Redirige vers l'accueil : la progression de l'import y est affichée.
+                            navController.navigate("dashboard") {
+                                popUpTo(navController.graph.startDestinationId) { saveState = true }
+                                launchSingleTop = true
+                            }
                         },
                         onBack = { editingEntry = null; navController.popBackStack() }
                     )
@@ -540,8 +812,20 @@ fun SalaryTrackerApp(
             ) {
                 CreateJobScreen(
                     geminiApiKey = geminiApiKey,
-                    onJobCreated = { viewModel.addJob(it) },
-                    onBack = { navController.popBackStack() }
+                    useLocalAi = useLocalAi,
+                    presetCompanyId = contractPreset?.first,
+                    presetCompanyName = contractPreset?.second,
+                    onNeedGeminiKey = { showGeminiKeyModal = true },
+                    onJobCreated = {
+                        viewModel.addJob(it)
+                        contractPreset = null
+                        // Retour déterministe vers "Mes emplois" (une seule entrée dans la pile)
+                        navController.navigate("selection") {
+                            popUpTo("selection") { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    },
+                    onBack = { contractPreset = null; navController.popBackStack() }
                 )
             }
 
@@ -556,8 +840,11 @@ fun SalaryTrackerApp(
                     CreateJobScreen(
                         existingJob = jobToEdit,
                         geminiApiKey = geminiApiKey,
+                        useLocalAi = useLocalAi,
+                        onNeedGeminiKey = { showGeminiKeyModal = true },
                         onJobCreated = {},
                         onJobUpdated = { viewModel.updateJob(it) },
+                        onDeleteJob = { viewModel.deleteJob(it.id) },
                         onBack = { navController.popBackStack() }
                     )
                 }
@@ -598,6 +885,37 @@ fun SalaryTrackerApp(
                         viewModel.setDailyReminder(context, dailyReminderEnabled, h, m)
                     },
                     onLogout = { viewModel.logout() },
+                    onDeleteAccount = {
+                        viewModel.deleteAccount { msg ->
+                            Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                        }
+                    },
+                    onDeleteAllEntries = {
+                        viewModel.deleteAllEntries { count ->
+                            Toast.makeText(context, "$count journée(s) supprimée(s)", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    linkedProviders = linkedProviders,
+                    onLinkGoogle = { triggerGoogleLink() },
+                    onLinkEmailAndPassword = { email, password, callback ->
+                        viewModel.linkWithEmailAndPassword(email, password) { ok, err ->
+                            refreshProviders()
+                            callback(ok, err)
+                            if (ok) {
+                                Toast.makeText(context, "E-mail lié ✓", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    },
+                    onUnlinkProvider = { providerId ->
+                        viewModel.unlinkProvider(providerId) { ok, err ->
+                            refreshProviders()
+                            Toast.makeText(
+                                context,
+                                if (ok) "Méthode dissociée ✓" else (err ?: "Échec de la dissociation."),
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                    },
                     onBack = { navController.popBackStack() }
                 )
             }
@@ -635,6 +953,71 @@ fun SalaryTrackerApp(
                 modifier = Modifier.align(Alignment.BottomCenter)
             )
         }
+    }
+
+    // ─── Dialog création d'entreprise ──────────────────────────────────
+    if (showCreateCompany) {
+        var companyNameInput by remember { mutableStateOf("") }
+        var addBaseContract by remember { mutableStateOf(true) }
+        AlertDialog(
+            onDismissRequest = { showCreateCompany = false },
+            icon = { Icon(Icons.Default.Add, null, tint = MaterialTheme.colorScheme.primary) },
+            title = { Text("Nouvelle entreprise") },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = companyNameInput,
+                        onValueChange = { companyNameInput = it },
+                        label = { Text("Nom de l'entreprise") },
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.clickable { addBaseContract = !addBaseContract }
+                    ) {
+                        androidx.compose.material3.Checkbox(
+                            checked = addBaseContract,
+                            onCheckedChange = { addBaseContract = it }
+                        )
+                        Text("Créer un contrat de base maintenant", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val nm = companyNameInput.trim()
+                        showCreateCompany = false
+                        viewModel.createCompany(nm) { company ->
+                            if (addBaseContract) {
+                                contractPreset = company.id to company.name
+                                navController.navigate("create_job")
+                            }
+                        }
+                    },
+                    enabled = companyNameInput.isNotBlank()
+                ) { Text("Créer") }
+            },
+            dismissButton = { TextButton(onClick = { showCreateCompany = false }) { Text("Annuler") } }
+        )
+    }
+
+    // ─── Modal clé Gemini ──────────────────────────────────────────────
+    if (showGeminiKeyModal) {
+        GeminiKeyModal(
+            onSaveKey = { key ->
+                viewModel.saveGeminiApiKey(key)
+                showGeminiKeyModal = false
+            },
+            onUseLocalAi = {
+                viewModel.declineGeminiForever()
+                showGeminiKeyModal = false
+            },
+            onDismiss = { showGeminiKeyModal = false }
+        )
     }
 
     if (showGoogleChooserFallback) {
@@ -865,6 +1248,17 @@ fun SalaryTrackerApp(
             }
         )
     }
+}
+
+/** Normalise un numéro français au format E.164 (+33…), en retirant le 0 superflu. */
+fun normalizeFrPhone(raw: String): String {
+    var s = raw.replace(Regex("[ .\\-]"), "").trim()
+    when {
+        s.startsWith("0033") -> s = "+33" + s.substring(4)
+        s.startsWith("+330") -> s = "+33" + s.substring(4)
+        s.startsWith("0") -> s = "+33" + s.substring(1)
+    }
+    return s
 }
 
 fun getAppSHA1(context: android.content.Context): String {

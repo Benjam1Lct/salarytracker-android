@@ -356,10 +356,15 @@ fun TickBar(progress: Float, modifier: Modifier = Modifier, ticks: Int = 44) {
     val filled = (ticks * anim).toInt()
     Row(modifier = modifier.height(26.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
         repeat(ticks) { i ->
-            val color = when {
-                i < filled - 4 -> WidgetGray
-                i < filled -> MaterialTheme.colorScheme.primary
-                else -> OutlineLt
+            val color = if (i < filled) {
+                val fraction = if (filled > 1) i.toFloat() / (filled - 1).toFloat() else 0f
+                androidx.compose.ui.graphics.lerp(
+                    start = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
+                    stop = MaterialTheme.colorScheme.primary,
+                    fraction = fraction
+                )
+            } else {
+                OutlineLt
             }
             Box(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(1.dp)).background(color))
         }

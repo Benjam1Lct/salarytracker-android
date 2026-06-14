@@ -52,6 +52,8 @@ class OcrService(private val context: Context, private val apiKey: String) {
             - L'heure de fin (format HH:mm, par défaut "00:00" si congé) ;
             - La durée de la pause en minutes (nombre entier, défaut 0).
             
+            Attention : Si une consigne ou note globale spécifie une pause (ex: "50min de pause par jour", "pause: 45 min", etc.) pour tout le relevé ou toute la période, applique automatiquement cette durée de pause (en minutes) à chacune des journées de travail extraites, même si elle n'est pas répétée sur chaque ligne.
+            
             Réponds UNIQUEMENT avec un tableau JSON strict, sans texte autour ni formatage markdown (pas de ```json ... ```), sous cette forme :
             [
               {
@@ -87,20 +89,31 @@ class OcrService(private val context: Context, private val apiKey: String) {
 
             Réponds UNIQUEMENT avec un objet JSON strict, sans texte autour, au format :
             {
-              "name": string,                 // Nom de l'entreprise / employeur
+              "companyName": string,          // Nom de l'entreprise / employeur
+              "jobTitle": string,             // Intitulé du poste / fonction (ex: "Ouvrier agricole", "Vendeur"), "" si absent
+              "contractType": "CDI" | "CDD" | "INTERIM" | "MISSION" | "ALTERNANCE" | "STAGE",
               "hourlyRateBrut": number,       // Taux horaire BRUT en euros (ex: 11.88)
               "weeklyContractHours": number,  // Heures hebdomadaires contractuelles (ex: 35)
               "annualOvertimeQuota": number,  // Contingent annuel d'heures sup (défaut 220)
-              "overtimeMode": "PAYEE" | "CAPITALISEE", // CAPITALISEE si modulation / livret / repos compensateur / paiement fin de contrat
+              "overtimeMode": "PAYEE" | "CAPITALISEE" | "RECUPERATION" | "CET" | "MIXTE" | "FORFAIT_JOURS",
               "startDate": string | null,     // Date de début au format ISO "YYYY-MM-DD", ou null
               "endDate": string | null,       // Date de fin au format ISO "YYYY-MM-DD", ou null si CDI / non précisée
               "hasLivret": boolean            // true s'il existe un livret / capitalisation des heures
             }
 
+            Règles pour contractType : "INTERIM" si mission d'intérim/travail temporaire ;
+            "CDD" si durée déterminée ; "ALTERNANCE" si apprentissage/professionnalisation ;
+            "STAGE" si stagiaire ; "MISSION" si mission ponctuelle/freelance ; sinon "CDI".
+
+            Règles pour overtimeMode : "CAPITALISEE" si modulation/livret/annualisation ;
+            "RECUPERATION" si repos compensateur heure pour heure ; "CET" si compte épargne-temps ;
+            "FORFAIT_JOURS" si forfait en jours (cadres) ; "MIXTE" si quota livret + paiement ;
+            sinon "PAYEE".
+
             Convertis toute date française (ex: "1er mars 2024", "01/03/2024") au format ISO.
-            Si une valeur est introuvable, utilise : name="Entreprise", hourlyRateBrut=0,
-            weeklyContractHours=35, annualOvertimeQuota=220, overtimeMode="PAYEE",
-            startDate=null, endDate=null, hasLivret=false.
+            Si une valeur est introuvable, utilise : companyName="Entreprise", jobTitle="",
+            contractType="CDI", hourlyRateBrut=0, weeklyContractHours=35, annualOvertimeQuota=220,
+            overtimeMode="PAYEE", startDate=null, endDate=null, hasLivret=false.
         """.trimIndent()
 
         private val PAYSLIP_PROMPT = """
@@ -344,14 +357,27 @@ class OcrService(private val context: Context, private val apiKey: String) {
 
             val data = JSONObject(text.trim())
 
-            // Livret = soit overtimeMode CAPITALISEE, soit le flag hasLivret
+            // Mode heures sup : valeur de l'IA, avec repli sur le flag hasLivret
             val modeStr = data.optString("overtimeMode", "PAYEE").uppercase()
             val hasLivret = data.optBoolean("hasLivret", false)
-            val mode = if (modeStr == "CAPITALISEE" || hasLivret)
-                OvertimeMode.CAPITALISEE else OvertimeMode.PAYEE
+            val mode = try {
+                OvertimeMode.valueOf(modeStr)
+            } catch (_: Exception) {
+                if (hasLivret) OvertimeMode.CAPITALISEE else OvertimeMode.PAYEE
+            }
+
+            val contractType = try {
+                ContractType.valueOf(data.optString("contractType", "CDI").uppercase())
+            } catch (_: Exception) { ContractType.CDI }
+
+            val company = data.optString("companyName", data.optString("name", "Entreprise"))
+                .ifBlank { "Entreprise" }
+            val jobTitle = data.optString("jobTitle", "")
 
             Job(
-                name = data.optString("name", "Entreprise").ifBlank { "Entreprise" },
+                name = jobTitle.ifBlank { company },
+                companyName = company,
+                contractType = contractType,
                 hourlyRateBrut = data.optDouble("hourlyRateBrut", 0.0),
                 weeklyContractHours = data.optDouble("weeklyContractHours", 35.0),
                 annualOvertimeQuota = data.optInt("annualOvertimeQuota", 220),

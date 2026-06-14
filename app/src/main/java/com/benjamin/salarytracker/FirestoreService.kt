@@ -34,6 +34,11 @@ class FirestoreService {
         try { userRef.keepSynced(true) } catch (_: Exception) {}
     }
 
+    /** Supprime définitivement toutes les données de l'utilisateur courant (users/{uid}). */
+    suspend fun deleteAllUserData() {
+        userRef.removeValue().await()
+    }
+
     suspend fun transferOldDataIfNeeded(newUserId: String) {
         if (newUserId == "user_benjamin") return
         val oldRef = db.getReference("users").child("user_benjamin")
@@ -68,6 +73,7 @@ class FirestoreService {
         slowTimeoutMs: Long = 5000,
         offlineTimeoutMs: Long = 12000
     ): Flow<ConnectionStatus> = callbackFlow {
+        // Initial state
         trySend(ConnectionStatus.CONNECTING)
 
         // Paliers du PREMIER démarrage : Connexion → (slow) instable → (offline) hors-ligne
@@ -75,33 +81,90 @@ class FirestoreService {
         val initialOffline = launch { delay(offlineTimeoutMs); trySend(ConnectionStatus.OFFLINE) }
 
         var wasConnected = false
+        var currentStatus = ConnectionStatus.CONNECTING
         var dropJob: kotlinx.coroutines.Job? = null
 
+        fun updateStatus(newStatus: ConnectionStatus) {
+            currentStatus = newStatus
+            trySend(newStatus)
+        }
+
         val ref = db.getReference(".info/connected")
-        val listener = object : ValueEventListener {
+        val firebaseListener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val connected = snapshot.getValue(Boolean::class.java) ?: false
                 if (connected) {
                     initialSlow.cancel(); initialOffline.cancel(); dropJob?.cancel()
                     wasConnected = true
-                    trySend(ConnectionStatus.CONNECTED)
+                    updateStatus(ConnectionStatus.CONNECTED)
                 } else if (wasConnected) {
                     // La connexion a chuté → étape "instable", puis hors-ligne si ça persiste
-                    trySend(ConnectionStatus.SLOW)
-                    dropJob?.cancel()
-                    dropJob = launch { delay(6000); trySend(ConnectionStatus.OFFLINE) }
+                    if (currentStatus == ConnectionStatus.CONNECTED) {
+                        updateStatus(ConnectionStatus.SLOW)
+                        dropJob?.cancel()
+                        dropJob = launch { delay(6000); updateStatus(ConnectionStatus.OFFLINE) }
+                    }
                 }
-                // sinon : encore en phase de connexion initiale → les timers gèrent l'escalade
             }
             override fun onCancelled(error: DatabaseError) {
-                trySend(ConnectionStatus.OFFLINE)
+                updateStatus(ConnectionStatus.OFFLINE)
             }
         }
-        ref.addValueEventListener(listener)
+
+        val connectivityManager = SalaryApp.instance.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
+        val networkCallback = object : android.net.ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: android.net.Network) {
+                // Si le réseau revient alors qu'on était hors-ligne ou instable, on affiche "Connexion en cours..."
+                // pendant que Firebase négocie sa reconnexion en tâche de fond.
+                if (currentStatus == ConnectionStatus.OFFLINE || currentStatus == ConnectionStatus.SLOW) {
+                    initialSlow.cancel(); initialOffline.cancel(); dropJob?.cancel()
+                    updateStatus(ConnectionStatus.CONNECTING)
+                }
+            }
+            override fun onLost(network: android.net.Network) {
+                // Dès que le système d'exploitation signale la perte totale de réseau, on bascule direct en offline
+                initialSlow.cancel(); initialOffline.cancel(); dropJob?.cancel()
+                updateStatus(ConnectionStatus.OFFLINE)
+            }
+        }
+
+        ref.addValueEventListener(firebaseListener)
+        try {
+            val builder = android.net.NetworkRequest.Builder()
+            connectivityManager?.registerNetworkCallback(builder.build(), networkCallback)
+        } catch (_: Exception) {}
+
         awaitClose {
             initialSlow.cancel(); initialOffline.cancel(); dropJob?.cancel()
-            ref.removeEventListener(listener)
+            ref.removeEventListener(firebaseListener)
+            try {
+                connectivityManager?.unregisterNetworkCallback(networkCallback)
+            } catch (_: Exception) {}
         }
+    }
+
+    fun getCompanies(): Flow<List<Company>> = callbackFlow {
+        val ref = userRef.child("companies")
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                trySend(snapshot.children.mapNotNull { child ->
+                    val id = child.key ?: return@mapNotNull null
+                    Company(id = id, name = child.child("name").getValue(String::class.java) ?: "")
+                })
+            }
+            override fun onCancelled(error: DatabaseError) { close(error.toException()) }
+        }
+        ref.addValueEventListener(listener)
+        awaitClose { ref.removeEventListener(listener) }
+    }
+
+    suspend fun addCompany(company: Company) {
+        userRef.child("companies").child(company.id)
+            .setValue(mapOf("name" to company.name)).await()
+    }
+
+    suspend fun deleteCompany(companyId: String) {
+        userRef.child("companies").child(companyId).removeValue().await()
     }
 
     fun getJobs(): Flow<List<Job>> = callbackFlow {
@@ -151,6 +214,11 @@ class FirestoreService {
         userRef.child("jobs").child(job.id).setValue(job.toMap()).await()
     }
 
+    /** Supprime un contrat et toutes ses sous-données (journées, templates, etc.). */
+    suspend fun deleteJob(jobId: String) {
+        userRef.child("jobs").child(jobId).removeValue().await()
+    }
+
     suspend fun updateJobFields(jobId: String, fields: Map<String, Any?>) {
         userRef.child("jobs").child(jobId).updateChildren(fields).await()
     }
@@ -188,6 +256,11 @@ class FirestoreService {
     suspend fun deleteDayEntry(jobId: String, entryId: String) {
         userRef.child("jobs").child(jobId).child("days")
             .child(entryId).removeValue().await()
+    }
+
+    /** Supprime toutes les journées d'un contrat. */
+    suspend fun deleteAllEntries(jobId: String) {
+        userRef.child("jobs").child(jobId).child("days").removeValue().await()
     }
 
     suspend fun addTemplate(jobId: String, template: DayTemplate) {
@@ -299,13 +372,20 @@ private fun DataSnapshot.bool(key: String): Boolean? =
 
 fun DataSnapshot.toJob(): Job? {
     return try {
+        val overtimeModeStr = str("overtimeMode") ?: "PAYEE"
+        val overtimeMode = try { OvertimeMode.valueOf(overtimeModeStr) } catch (_: Exception) { OvertimeMode.PAYEE }
+        val contractTypeStr = str("contractType") ?: "CDI"
+        val contractType = try { ContractType.valueOf(contractTypeStr) } catch (_: Exception) { ContractType.CDI }
         Job(
             id = key ?: return null,
             name = str("name") ?: "",
+            companyName = str("companyName") ?: "",
+            companyId = str("companyId"),
+            contractType = contractType,
             hourlyRateBrut = dbl("hourlyRateBrut") ?: 0.0,
             weeklyContractHours = dbl("weeklyContractHours") ?: 35.0,
             annualOvertimeQuota = lng("annualOvertimeQuota")?.toInt() ?: 220,
-            overtimeMode = OvertimeMode.valueOf(str("overtimeMode") ?: "PAYEE"),
+            overtimeMode = overtimeMode,
             livretThreshold = dbl("livretThreshold") ?: 43.0,
             soldeLivretHeures = dbl("soldeLivretHeures") ?: 0.0,
             targetMonthlySalary = dbl("targetMonthlySalary") ?: 3000.0,
@@ -348,6 +428,9 @@ fun DataSnapshot.toDayTemplate(): DayTemplate? {
 
 fun Job.toMap(): Map<String, Any?> = mapOf(
     "name" to name,
+    "companyName" to companyName,
+    "companyId" to companyId,
+    "contractType" to contractType.name,
     "hourlyRateBrut" to hourlyRateBrut,
     "weeklyContractHours" to weeklyContractHours,
     "annualOvertimeQuota" to annualOvertimeQuota,

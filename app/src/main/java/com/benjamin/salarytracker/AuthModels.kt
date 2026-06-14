@@ -5,5 +5,6 @@ data class UserSession(
     val displayName: String,
     val email: String,
     val photoUrl: String? = null,
-    val isMock: Boolean = false
+    /** true = compte local : données stockées sur l'appareil, pas sur Firebase. */
+    val isLocal: Boolean = false
 )

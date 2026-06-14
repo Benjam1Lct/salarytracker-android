@@ -6,8 +6,35 @@ import java.time.Duration
 import java.time.YearMonth
 import java.util.UUID
 
+/** Type de contrat de travail */
+enum class ContractType {
+    /** Contrat à Durée Indéterminée (CDI) — par défaut */
+    CDI,
+    /** Contrat à Durée Déterminée (CDD) */
+    CDD,
+    /** Mission d'intérim */
+    INTERIM,
+    /** Mission ponctuelle / freelance */
+    MISSION,
+    /** Contrat d'alternance (apprentissage / pro) */
+    ALTERNANCE,
+    /** Stage */
+    STAGE
+}
+
 enum class OvertimeMode {
-    PAYEE, CAPITALISEE
+    /** Toutes les heures sup payées avec majoration (+25%/+50%) */
+    PAYEE,
+    /** Modulation / Livret d'heures : 35–43h créditées, au-delà payées crête */
+    CAPITALISEE,
+    /** Récupération heure pour heure (pas de majoration) */
+    RECUPERATION,
+    /** Compte Épargne-Temps — accumulation avec majoration +25% */
+    CET,
+    /** Mix : quota sur livret, heures au-delà payées majorées */
+    MIXTE,
+    /** Forfait jours (cadres) — logique basée sur les jours, ~218j/an */
+    FORFAIT_JOURS
 }
 
 /** Bulletin de salaire réel (importé/scanné) pour comparer avec l'estimation. */
@@ -21,7 +48,7 @@ data class Payslip(
     val heuresPayees: Double = 0.0,
     val cotisations: Double = 0.0,     // total cotisations salariales
     val uploadedAt: Long = System.currentTimeMillis()
-) {
+) : java.io.Serializable {
     val yearMonth: YearMonth get() = YearMonth.of(year, month)
 }
 
@@ -37,9 +64,21 @@ enum class ConnectionStatus {
     OFFLINE
 }
 
+/** Entreprise : entité indépendante. Peut exister sans aucun contrat. */
+data class Company(
+    val id: String = UUID.randomUUID().toString(),
+    val name: String = ""
+) : java.io.Serializable
+
 data class Job(
     val id: String = UUID.randomUUID().toString(),
-    val name: String,
+    val name: String = "",
+    /** Nom de l'entreprise (peut différer du nom du contrat) */
+    val companyName: String = "",
+    /** ID du job parent (entreprise) si ce contrat est rattaché à une entreprise */
+    val companyId: String? = null,
+    /** Type de contrat de travail */
+    val contractType: ContractType = ContractType.CDI,
     val hourlyRateBrut: Double,
     val weeklyContractHours: Double = 35.0,
     val annualOvertimeQuota: Int = 220,
@@ -52,7 +91,7 @@ data class Job(
     val dayTemplates: List<DayTemplate> = emptyList(),
     val isMainJob: Boolean = false,
     val isArchived: Boolean = false
-)
+) : java.io.Serializable
 
 data class DayTemplate(
     val id: String = UUID.randomUUID().toString(),
@@ -60,11 +99,11 @@ data class DayTemplate(
     val startTime: LocalTime,
     val endTime: LocalTime,
     val pauseBlocks: List<PauseBlock> = emptyList()
-)
+) : java.io.Serializable
 
 data class PauseBlock(
     val durationMinutes: Long
-)
+) : java.io.Serializable
 
 data class DayEntry(
     val id: String = UUID.randomUUID().toString(),
@@ -75,7 +114,7 @@ data class DayEntry(
     val pauseMinutes: Long,
     /** Jour de congé / absence : ne compte pas comme déficit dans le livret. */
     val isLeave: Boolean = false
-) {
+) : java.io.Serializable {
     val totalHours: Double
         get() {
             if (isLeave) return 0.0
@@ -111,7 +150,7 @@ data class AutoEntryRule(
     val endDate: LocalDate? = null,
     /** Jours de la semaine concernés : 1 = lundi … 7 = dimanche. */
     val weekdays: Set<Int> = setOf(1, 2, 3, 4, 5)
-)
+) : java.io.Serializable
 
 // Legacy compatibility — used by existing screens
 data class SalaryStats(

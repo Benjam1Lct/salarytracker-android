@@ -9,7 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.IosShare
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.Work
 import androidx.compose.ui.platform.LocalContext
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -96,7 +96,7 @@ fun StatsScreen(
                         }
                         SquareIconButton(Icons.Default.Settings, onClick = onSettings, active = false)
                         Spacer(Modifier.width(10.dp))
-                        SquareIconButton(Icons.Default.SwapHoriz, onClick = onSelectJob, active = true)
+                        SquareIconButton(Icons.Default.Work, onClick = onSelectJob, active = true)
                     }
                 }
             }
@@ -222,7 +222,7 @@ fun StatsScreen(
                             modifier = Modifier.fillMaxWidth()
                         )
                         AppButton(
-                            text = "Importer depuis Excel/CSV/Texte",
+                            text = "Importer Excel/CSV/Texte/Image",
                             onClick = { launcher.launch("*/*") },
                             leading = Icons.Default.ArrowUpward,
                             filled = false,

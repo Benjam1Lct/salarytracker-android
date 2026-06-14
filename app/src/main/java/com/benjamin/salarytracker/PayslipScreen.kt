@@ -42,6 +42,8 @@ fun PayslipScreen(
     payslips: List<Payslip>,
     connectionStatus: ConnectionStatus,
     geminiApiKey: String,
+    useLocalAi: Boolean = false,
+    onNeedGeminiKey: () -> Unit = {},
     onAddPayslip: (Payslip) -> Unit,
     onDeletePayslip: (String) -> Unit,
     onBack: () -> Unit
@@ -49,14 +51,23 @@ fun PayslipScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val ocr = remember(geminiApiKey) { OcrService(context, geminiApiKey) }
+    val localOcr = remember { LocalOcrService(context) }
     var analyzing by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf("") }
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris: List<Uri> ->
         if (uris.isNotEmpty()) {
+            // Aucun mode IA choisi → on ouvre la modal au lieu d'analyser.
+            if (!useLocalAi && geminiApiKey.isBlank()) {
+                onNeedGeminiKey()
+                return@rememberLauncherForActivityResult
+            }
+            val analyzeLocally = useLocalAi || geminiApiKey.isBlank()
             analyzing = true
             scope.launch {
-                when (val res = ocr.extractPayslipData(uris) { status = it }) {
+                val res = if (analyzeLocally) localOcr.extractPayslipData(uris) { status = it }
+                          else ocr.extractPayslipData(uris) { status = it }
+                when (res) {
                     is PayslipAnalysis.Success -> {
                         onAddPayslip(res.payslip)
                         Toast.makeText(context, "Bulletin ajouté ✓", Toast.LENGTH_SHORT).show()

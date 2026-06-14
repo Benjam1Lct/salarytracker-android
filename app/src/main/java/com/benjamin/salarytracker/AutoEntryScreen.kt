@@ -74,7 +74,7 @@ fun AutoEntryScreen(
                     }
                     SquareIconButton(Icons.Default.Settings, onClick = onSettings, active = false)
                     Spacer(Modifier.width(10.dp))
-                    SquareIconButton(Icons.Default.SwapHoriz, onClick = onSelectJob, active = true)
+                    SquareIconButton(Icons.Default.Work, onClick = onSelectJob, active = true)
                 }
             }
 

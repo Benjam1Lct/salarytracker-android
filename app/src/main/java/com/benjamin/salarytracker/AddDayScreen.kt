@@ -120,7 +120,6 @@ fun AddDayScreen(
                             it,
                             { count ->
                                 Toast.makeText(context, "Import réussi : $count journées ajoutées.", Toast.LENGTH_LONG).show()
-                                onBack()
                             },
                             { err ->
                                 Toast.makeText(context, err, Toast.LENGTH_LONG).show()
@@ -130,7 +129,7 @@ fun AddDayScreen(
                 }
 
                 AppButton(
-                    text = "Importer l'historique (Excel/CSV/Texte)",
+                    text = "Importer l'historique (CSV/Texte/Image)",
                     onClick = { launcher.launch("*/*") },
                     leading = Icons.Default.ArrowUpward,
                     filled = false,

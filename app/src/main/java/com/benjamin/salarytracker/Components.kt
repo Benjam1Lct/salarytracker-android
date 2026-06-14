@@ -286,11 +286,22 @@ fun ConnectionTag(
     } else 1f
 
     // Centré horizontalement
+    val context = androidx.compose.ui.platform.LocalContext.current
     Box(modifier = modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
         Row(
             modifier = Modifier
                 .clip(RoundedCornerShape(50))
                 .background(bgColor)
+                .then(
+                    if (status == ConnectionStatus.OFFLINE || status == ConnectionStatus.SLOW) {
+                        Modifier.clickable {
+                            try {
+                                com.google.firebase.database.FirebaseDatabase.getInstance(SalaryApp.DB_URL).goOnline()
+                                android.widget.Toast.makeText(context, "Tentative de reconnexion...", android.widget.Toast.LENGTH_SHORT).show()
+                            } catch (_: Exception) {}
+                        }
+                    } else Modifier
+                )
                 .padding(horizontal = 12.dp, vertical = 3.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp)

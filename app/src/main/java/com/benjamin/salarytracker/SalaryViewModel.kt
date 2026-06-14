@@ -6,16 +6,42 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withTimeoutOrNull
 
+/** État de l'import de journées (lecture, analyse, succès, erreur). */
+sealed interface ImportStatus {
+    object Idle : ImportStatus
+    data class InProgress(val message: String) : ImportStatus
+    data class Success(val count: Int) : ImportStatus
+    data class Error(val message: String) : ImportStatus
+}
+
 class SalaryViewModel(
-    private val firestoreService: FirestoreService = FirestoreService()
+    private val remoteService: DataService = RemoteDataService()
 ) : ViewModel() {
+
+    // Stockage local sur l'appareil (comptes locaux).
+    private val localService = LocalDataService(SalaryApp.instance)
+
+    // Blocage de version : true si l'app est trop ancienne (config Firebase config/minVersionCode).
+    private val _updateRequired = MutableStateFlow(false)
+    val updateRequired: StateFlow<Boolean> = _updateRequired.asStateFlow()
 
     private val _userSession = MutableStateFlow<UserSession?>(null)
     val userSession: StateFlow<UserSession?> = _userSession.asStateFlow()
 
+    /** Backend actif selon le type de session : local (sur l'appareil) ou distant (Firebase). */
+    private val data: DataService
+        get() = if (_userSession.value?.isLocal == true) localService else remoteService
+
     val geminiApiKey = MutableStateFlow<String>("")
+
+    /** true = l'utilisateur a choisi d'utiliser l'IA locale (ML Kit + regex) au lieu de Gemini */
+    val useLocalAi = MutableStateFlow(false)
+
+    /** Verifier verification ID pour Phone Auth Firebase */
+    var phoneVerificationId: String? = null
 
     private val prefs = SalaryApp.instance.getSharedPreferences("salary_tracker_prefs", android.content.Context.MODE_PRIVATE)
 
@@ -26,14 +52,19 @@ class SalaryViewModel(
     @OptIn(ExperimentalCoroutinesApi::class)
     val jobs: StateFlow<List<Job>> = _userSession.flatMapLatest { session ->
         if (session != null) {
-            firestoreService.setUserId(session.uid)
+            data.setUserId(session.uid)
             flow {
-                firestoreService.transferOldDataIfNeeded(session.uid)
-                emitAll(firestoreService.getJobs())
+                data.transferOldDataIfNeeded(session.uid)
+                emitAll(data.getJobs())
             }
         } else {
             flowOf(emptyList())
         }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val companies: StateFlow<List<Company>> = _userSession.flatMapLatest { session ->
+        if (session != null) data.getCompanies() else flowOf(emptyList())
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _currentJobId = MutableStateFlow<String?>(null)
@@ -42,10 +73,15 @@ class SalaryViewModel(
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
+    // État de l'import de journées (affiché sur le tableau de bord).
+    private val _importStatus = MutableStateFlow<ImportStatus>(ImportStatus.Idle)
+    val importStatus: StateFlow<ImportStatus> = _importStatus.asStateFlow()
+    fun clearImportStatus() { _importStatus.value = ImportStatus.Idle }
+
     @OptIn(ExperimentalCoroutinesApi::class)
     val connectionStatus: StateFlow<ConnectionStatus> = _userSession.flatMapLatest { session ->
         if (session != null) {
-            firestoreService.connectionStatus()
+            data.connectionStatus()
         } else {
             flowOf(ConnectionStatus.OFFLINE)
         }
@@ -57,42 +93,43 @@ class SalaryViewModel(
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val entries: StateFlow<List<DayEntry>> = currentJobId.flatMapLatest { id ->
-        if (id != null) firestoreService.getEntries(id) else flowOf(emptyList())
+        if (id != null) data.getEntries(id) else flowOf(emptyList())
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val templates: StateFlow<List<DayTemplate>> = currentJobId.flatMapLatest { id ->
-        if (id != null) firestoreService.getTemplates(id) else flowOf(emptyList())
+        if (id != null) data.getTemplates(id) else flowOf(emptyList())
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val autoRules: StateFlow<List<AutoEntryRule>> = currentJobId.flatMapLatest { id ->
-        if (id != null) firestoreService.getAutoRules(id) else flowOf(emptyList())
+        if (id != null) data.getAutoRules(id) else flowOf(emptyList())
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val payslips: StateFlow<List<Payslip>> = currentJobId.flatMapLatest { id ->
-        if (id != null) firestoreService.getPayslips(id) else flowOf(emptyList())
+        if (id != null) data.getPayslips(id) else flowOf(emptyList())
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val appTheme: StateFlow<String> = _userSession.flatMapLatest { session ->
-        if (session != null) firestoreService.getAppTheme() else flowOf("purple")
+        if (session != null) data.getAppTheme() else flowOf("purple")
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "purple")
 
     init {
         dailyReminderEnabled.value = prefs.getBoolean("daily_reminder_enabled", false)
         dailyReminderHour.value = prefs.getInt("daily_reminder_hour", 18)
         dailyReminderMinute.value = prefs.getInt("daily_reminder_minute", 0)
+        useLocalAi.value = prefs.getBoolean("use_local_ai", false)
 
         val savedUid = prefs.getString("user_uid", null)
         val savedName = prefs.getString("user_name", null)
         val savedEmail = prefs.getString("user_email", null)
         val savedPhoto = prefs.getString("user_photo", null)
-        val savedIsMock = prefs.getBoolean("user_is_mock", false)
+        val savedIsLocal = prefs.getBoolean("user_is_local", false)
 
         if (savedUid != null && savedName != null && savedEmail != null) {
-            val session = UserSession(savedUid, savedName, savedEmail, savedPhoto, savedIsMock)
+            val session = UserSession(savedUid, savedName, savedEmail, savedPhoto, savedIsLocal)
             _userSession.value = session
             loadApiKeyForUser(savedUid)
         } else {
@@ -103,11 +140,26 @@ class SalaryViewModel(
                     displayName = firebaseUser.displayName ?: "Utilisateur Google",
                     email = firebaseUser.email ?: "",
                     photoUrl = firebaseUser.photoUrl?.toString(),
-                    isMock = false
+                    isLocal = false
                 )
                 _userSession.value = session
                 loadApiKeyForUser(firebaseUser.uid)
             }
+        }
+
+        // Vérifie la version minimale requise (config/minVersionCode dans Firebase).
+        // En cas d'erreur (hors-ligne, règle absente) → on n'impose rien (fail-open).
+        viewModelScope.launch {
+            try {
+                val snap = com.google.firebase.database.FirebaseDatabase.getInstance(SalaryApp.DB_URL)
+                    .getReference("config/minVersionCode").get().await()
+                val min = when (val value = snap.value) {
+                    is Number -> value.toInt()
+                    is String -> value.toDoubleOrNull()?.toInt() ?: 0
+                    else -> 0
+                }
+                if (BuildConfig.VERSION_CODE < min) _updateRequired.value = true
+            } catch (_: Exception) {}
         }
 
         viewModelScope.launch {
@@ -116,6 +168,20 @@ class SalaryViewModel(
                     val mainJob = jobList.find { it.isMainJob }
                     _currentJobId.value = mainJob?.id ?: jobList.first().id
                 }
+            }
+        }
+
+        // Migration : crée une entité Entreprise pour chaque companyName de contrat
+        // qui n'en a pas encore (ainsi les entreprises persistent indépendamment des contrats).
+        viewModelScope.launch {
+            combine(jobs, companies) { j, c -> j to c }.collect { (jobList, companyList) ->
+                if (jobList.isEmpty()) return@collect
+                val existingNames = companyList.map { it.name }.toSet()
+                val missing = jobList
+                    .mapNotNull { it.companyName.ifBlank { null } }
+                    .distinct()
+                    .filter { it !in existingNames }
+                missing.forEach { name -> data.addCompany(Company(name = name)) }
             }
         }
     }
@@ -136,7 +202,7 @@ class SalaryViewModel(
             try {
                 // Borné à 4 s : si le serveur ne répond pas, on n'attend pas indéfiniment
                 withTimeoutOrNull(4000) {
-                    firestoreService.forceRefresh(_currentJobId.value)
+                    data.forceRefresh(_currentJobId.value)
                 }
                 // Durée minimale visible pour le retour utilisateur
                 delay(500)
@@ -148,22 +214,63 @@ class SalaryViewModel(
     }
 
     fun setMainJob(jobId: String) {
-        viewModelScope.launch { firestoreService.setMainJob(jobId) }
+        viewModelScope.launch { data.setMainJob(jobId) }
     }
 
     fun addJob(job: Job) {
-        viewModelScope.launch { firestoreService.addJob(job) }
+        viewModelScope.launch { data.addJob(job) }
+    }
+
+    /** Supprime un contrat. Si c'était le contrat sélectionné, en resélectionne un autre. */
+    fun deleteJob(jobId: String) {
+        viewModelScope.launch {
+            data.deleteJob(jobId)
+            if (_currentJobId.value == jobId) {
+                _currentJobId.value = jobs.value.firstOrNull { it.id != jobId }?.id
+            }
+        }
+    }
+
+    /** Crée une entreprise (entité indépendante). [onCreated] reçoit l'entreprise créée. */
+    fun createCompany(name: String, onCreated: (Company) -> Unit = {}) {
+        val company = Company(name = name.trim())
+        viewModelScope.launch { data.addCompany(company) }
+        onCreated(company)
+    }
+
+    /** Supprime une entreprise ET tous ses contrats (avec leurs sous-données). */
+    fun deleteCompany(company: Company) {
+        viewModelScope.launch {
+            jobs.value
+                .filter { it.companyId == company.id || (it.companyId == null && it.companyName == company.name) }
+                .forEach { data.deleteJob(it.id) }
+            data.deleteCompany(company.id)
+        }
+    }
+
+    /** Supprime toutes les journées de tous les contrats et remet le livret à zéro. */
+    fun deleteAllEntries(onDone: (Int) -> Unit = {}) {
+        viewModelScope.launch {
+            val total = entries.value.size
+            jobs.value.forEach { job ->
+                data.deleteAllEntries(job.id)
+                if (job.soldeLivretHeures != 0.0) {
+                    data.updateJobFields(job.id, mapOf("soldeLivretHeures" to 0.0))
+                }
+            }
+            onDone(total)
+        }
     }
 
     fun updateJob(job: Job) {
-        viewModelScope.launch { firestoreService.updateJob(job) }
+        viewModelScope.launch { data.updateJob(job) }
     }
 
     /** Met à jour l'objectif mensuel du job courant. */
     fun updateTargetSalary(target: Double) {
         val current = currentJob.value ?: return
         viewModelScope.launch {
-            firestoreService.updateJob(current.copy(targetMonthlySalary = target))
+            data.updateJob(current.copy(targetMonthlySalary = target))
         }
     }
 
@@ -172,7 +279,7 @@ class SalaryViewModel(
         val currentJobValue = currentJob.value ?: return
 
         viewModelScope.launch {
-            firestoreService.addDayEntry(jobId, entry)
+            data.addDayEntry(jobId, entry)
             prefs.edit().putString("last_logged_date", java.time.LocalDate.now().toString()).apply()
 
             // Recalcul complet du solde livret depuis toutes les entrées + la nouvelle
@@ -180,7 +287,7 @@ class SalaryViewModel(
             val newLivretSolde = SalaryCalculator.calculateTotalLivretFromEntries(allEntries)
 
             if (newLivretSolde != currentJobValue.soldeLivretHeures) {
-                firestoreService.updateJobFields(
+                data.updateJobFields(
                     jobId,
                     mapOf("soldeLivretHeures" to newLivretSolde)
                 )
@@ -193,14 +300,14 @@ class SalaryViewModel(
         val currentJobValue = currentJob.value ?: return
 
         viewModelScope.launch {
-            firestoreService.deleteDayEntry(jobId, entryId)
+            data.deleteDayEntry(jobId, entryId)
 
             // Recalcul après suppression
             val remainingEntries = entries.value.filter { it.id != entryId }
             val newLivretSolde = SalaryCalculator.calculateTotalLivretFromEntries(remainingEntries)
 
             if (newLivretSolde != currentJobValue.soldeLivretHeures) {
-                firestoreService.updateJobFields(
+                data.updateJobFields(
                     jobId,
                     mapOf("soldeLivretHeures" to newLivretSolde)
                 )
@@ -210,7 +317,7 @@ class SalaryViewModel(
 
     fun addTemplate(template: DayTemplate) {
         val jobId = currentJobId.value ?: return
-        viewModelScope.launch { firestoreService.addTemplate(jobId, template) }
+        viewModelScope.launch { data.addTemplate(jobId, template) }
     }
 
     // ─── Saisie automatique ──────────────────────────────────────────────────
@@ -218,26 +325,26 @@ class SalaryViewModel(
     fun addAutoRule(rule: AutoEntryRule) {
         val jobId = currentJobId.value ?: return
         viewModelScope.launch {
-            firestoreService.addAutoRule(jobId, rule)
+            data.addAutoRule(jobId, rule)
             runAutoGeneration() // génère immédiatement le rattrapage
         }
     }
 
     fun deleteAutoRule(ruleId: String) {
         val jobId = currentJobId.value ?: return
-        viewModelScope.launch { firestoreService.deleteAutoRule(jobId, ruleId) }
+        viewModelScope.launch { data.deleteAutoRule(jobId, ruleId) }
     }
 
     // ─── Bulletins de salaire ────────────────────────────────────────────────
 
     fun addPayslip(payslip: Payslip) {
         val jobId = currentJobId.value ?: return
-        viewModelScope.launch { firestoreService.addPayslip(jobId, payslip) }
+        viewModelScope.launch { data.addPayslip(jobId, payslip) }
     }
 
     fun deletePayslip(payslipId: String) {
         val jobId = currentJobId.value ?: return
-        viewModelScope.launch { firestoreService.deletePayslip(jobId, payslipId) }
+        viewModelScope.launch { data.deletePayslip(jobId, payslipId) }
     }
 
     /**
@@ -278,7 +385,7 @@ class SalaryViewModel(
                 var d = rule.startDate
                 while (!d.isAfter(upperBound)) {
                     if (d.dayOfWeek.value in rule.weekdays && d !in existingDates) {
-                        firestoreService.addDayEntry(
+                        data.addDayEntry(
                             jobId,
                             DayEntry(
                                 id = "auto_$d", // id déterministe → idempotent (pas de doublon)
@@ -301,14 +408,14 @@ class SalaryViewModel(
 
     fun deleteTemplate(templateId: String) {
         val jobId = currentJobId.value ?: return
-        viewModelScope.launch { firestoreService.deleteTemplate(jobId, templateId) }
+        viewModelScope.launch { data.deleteTemplate(jobId, templateId) }
     }
 
     // ─── App Settings ────────────────────────────────────────────────────────
 
     fun updateTheme(context: android.content.Context, theme: String) {
         viewModelScope.launch {
-            firestoreService.updateAppTheme(theme)
+            data.updateAppTheme(theme)
             switchAppIcon(context, theme)
             // Quitter l'application pour que le changement d'icône soit pris en compte proprement
             (context as? android.app.Activity)?.finishAffinity()
@@ -344,7 +451,7 @@ class SalaryViewModel(
 
         viewModelScope.launch {
             try {
-                val cloudKey = firestoreService.getGeminiApiKey()
+                val cloudKey = data.getGeminiApiKey()
                 if (!cloudKey.isNullOrBlank() && cloudKey != localKey) {
                     geminiApiKey.value = cloudKey
                     prefs.edit().putString("gemini_api_key_$uid", cloudKey).apply()
@@ -356,27 +463,288 @@ class SalaryViewModel(
     fun saveGeminiApiKey(key: String) {
         val session = _userSession.value ?: return
         geminiApiKey.value = key
-        prefs.edit().putString("gemini_api_key_${session.uid}", key).apply()
+        useLocalAi.value = false
+        prefs.edit()
+            .putString("gemini_api_key_${session.uid}", key)
+            .putBoolean("use_local_ai", false)
+            .apply()
         viewModelScope.launch {
             try {
-                firestoreService.saveGeminiApiKey(key)
+                data.saveGeminiApiKey(key)
             } catch (_: Exception) {}
         }
     }
 
     fun loginWithGoogle(uid: String, email: String, name: String, photoUrl: String?) {
-        val session = UserSession(uid, name, email, photoUrl, isMock = false)
+        val session = UserSession(uid, name, email, photoUrl, isLocal = false)
         _userSession.value = session
         persistSession(session)
         loadApiKeyForUser(uid)
     }
 
-    fun loginMock(name: String) {
-        val uid = "mock_${name.lowercase().replace(" ", "_")}"
-        val session = UserSession(uid, name, "${uid}@mock.com", isMock = true)
+    fun loginWithEmail(uid: String, email: String) {
+        val session = UserSession(
+            uid = uid,
+            displayName = email.substringBefore("@"),
+            email = email,
+            photoUrl = null,
+            isLocal = false
+        )
         _userSession.value = session
         persistSession(session)
         loadApiKeyForUser(uid)
+    }
+
+    fun signInWithEmailAndPassword(email: String, password: String, onResult: (Boolean, String?) -> Unit) {
+        viewModelScope.launch {
+            try {
+                com.google.firebase.auth.FirebaseAuth.getInstance().signInWithEmailAndPassword(email, password)
+                    .addOnCompleteListener { task ->
+                        if (task.isSuccessful) {
+                            val user = task.result?.user
+                            if (user != null) {
+                                loginWithEmail(user.uid, user.email ?: email)
+                                onResult(true, null)
+                            } else {
+                                onResult(false, "Utilisateur introuvable.")
+                            }
+                        } else {
+                            onResult(false, task.exception?.localizedMessage ?: "Échec de la connexion.")
+                        }
+                    }
+            } catch (e: Exception) {
+                onResult(false, e.localizedMessage)
+            }
+        }
+    }
+
+    fun signUpWithEmailAndPassword(email: String, password: String, onResult: (Boolean, String?) -> Unit) {
+        viewModelScope.launch {
+            try {
+                com.google.firebase.auth.FirebaseAuth.getInstance().createUserWithEmailAndPassword(email, password)
+                    .addOnCompleteListener { task ->
+                        if (task.isSuccessful) {
+                            val user = task.result?.user
+                            if (user != null) {
+                                loginWithEmail(user.uid, user.email ?: email)
+                                onResult(true, null)
+                            } else {
+                                onResult(false, "Création réussie, mais utilisateur introuvable.")
+                            }
+                        } else {
+                            onResult(false, task.exception?.localizedMessage ?: "Échec de l'inscription.")
+                        }
+                    }
+            } catch (e: Exception) {
+                onResult(false, e.localizedMessage)
+            }
+        }
+    }
+
+    /**
+     * Domaine Firebase Hosting du projet — utilisé pour le lien de connexion par e-mail.
+     * Le lien généré pointe vers {domaine}/__/auth/links et est intercepté par l'App Link
+     * déclaré dans le manifeste.
+     */
+    private val emailLinkDomain = "salarytracker-879e4.firebaseapp.com"
+
+    /**
+     * Envoie un lien e-mail. Si [forLinking] est vrai, le lien servira à *lier* l'adresse
+     * au compte déjà connecté (au lieu de créer/ouvrir une session).
+     */
+    fun sendEmailLink(email: String, forLinking: Boolean = false, onResult: (Boolean, String?) -> Unit) {
+        // url = lien de continuation (page de repli si l'app n'est pas installée).
+        // NE PAS mettre /__/auth/links ici : c'est le chemin du lien généré par Firebase,
+        // pas l'URL de continuation → cela produit un lien invalide.
+        val acs = com.google.firebase.auth.ActionCodeSettings.newBuilder()
+            .setUrl("https://$emailLinkDomain/finishSignIn")
+            .setHandleCodeInApp(true)
+            .setAndroidPackageName("com.benjamin.salarytracker", true, null)
+            .build()
+        com.google.firebase.auth.FirebaseAuth.getInstance()
+            .sendSignInLinkToEmail(email, acs)
+            .addOnCompleteListener { task ->
+                if (task.isSuccessful) {
+                    prefs.edit()
+                        .putString("email_link_pending", email)
+                        .putBoolean("email_link_for_linking", forLinking)
+                        .apply()
+                    onResult(true, null)
+                } else {
+                    onResult(false, task.exception?.message ?: "Échec de l'envoi du lien.")
+                }
+            }
+    }
+
+    /** Vrai si l'URI fournie est un lien de connexion par e-mail Firebase. */
+    fun isEmailSignInLink(link: String): Boolean =
+        com.google.firebase.auth.FirebaseAuth.getInstance().isSignInWithEmailLink(link)
+
+    /** Termine le flux e-mail : soit connexion, soit liaison au compte courant. */
+    fun completeEmailLinkSignIn(link: String, onResult: (Boolean, String?) -> Unit) {
+        val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
+        if (!auth.isSignInWithEmailLink(link)) {
+            onResult(false, null)
+            return
+        }
+        val email = prefs.getString("email_link_pending", null)
+        if (email == null) {
+            onResult(false, "Adresse e-mail introuvable. Recommencez la demande sur cet appareil.")
+            return
+        }
+        val forLinking = prefs.getBoolean("email_link_for_linking", false)
+        val currentUser = auth.currentUser
+
+        if (forLinking && currentUser != null) {
+            // Liaison de l'adresse e-mail au compte déjà connecté
+            val credential = com.google.firebase.auth.EmailAuthProvider.getCredentialWithLink(email, link)
+            currentUser.linkWithCredential(credential)
+                .addOnCompleteListener { task ->
+                    prefs.edit().remove("email_link_pending").remove("email_link_for_linking").apply()
+                    if (task.isSuccessful) onResult(true, null)
+                    else onResult(false, mapLinkError(task.exception))
+                }
+        } else {
+            auth.signInWithEmailLink(email, link)
+                .addOnCompleteListener { task ->
+                    prefs.edit().remove("email_link_pending").remove("email_link_for_linking").apply()
+                    if (task.isSuccessful) {
+                        val user = task.result?.user
+                        if (user != null) loginWithEmail(user.uid, user.email ?: email)
+                        onResult(true, null)
+                    } else {
+                        onResult(false, task.exception?.message ?: "Lien invalide ou expiré.")
+                    }
+                }
+        }
+    }
+
+    // ─── Liaison de comptes (account linking) ─────────────────────────────────
+
+    /** Identifiants des fournisseurs déjà liés au compte courant (google.com, phone, password). */
+    fun linkedProviderIds(): List<String> =
+        com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.providerData
+            ?.map { it.providerId }
+            ?.filter { it != "firebase" }
+            ?: emptyList()
+
+    /** Lie un identifiant Google (idToken) au compte connecté. */
+    fun linkWithGoogle(idToken: String, onResult: (Boolean, String?) -> Unit) {
+        val user = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+            ?: return onResult(false, "Aucun utilisateur connecté.")
+        val credential = com.google.firebase.auth.GoogleAuthProvider.getCredential(idToken, null)
+        user.linkWithCredential(credential)
+            .addOnCompleteListener { task ->
+                if (task.isSuccessful) onResult(true, null)
+                else onResult(false, mapLinkError(task.exception))
+            }
+    }
+
+    /** Lie un numéro de téléphone (verificationId + code SMS) au compte connecté. */
+    fun linkWithPhone(verificationId: String, code: String, onResult: (Boolean, String?) -> Unit) {
+        val user = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+            ?: return onResult(false, "Aucun utilisateur connecté.")
+        val credential = com.google.firebase.auth.PhoneAuthProvider.getCredential(verificationId, code)
+        user.linkWithCredential(credential)
+            .addOnCompleteListener { task ->
+                if (task.isSuccessful) onResult(true, null)
+                else onResult(false, mapLinkError(task.exception))
+            }
+    }
+
+    /** Lie un e-mail et un mot de passe au compte connecté. */
+    fun linkWithEmailAndPassword(email: String, password: String, onResult: (Boolean, String?) -> Unit) {
+        val user = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+            ?: return onResult(false, "Aucun utilisateur connecté.")
+        val credential = com.google.firebase.auth.EmailAuthProvider.getCredential(email, password)
+        user.linkWithCredential(credential)
+            .addOnCompleteListener { task ->
+                if (task.isSuccessful) onResult(true, null)
+                else onResult(false, mapLinkError(task.exception))
+            }
+    }
+
+    /** Délie un fournisseur du compte courant (impossible s'il n'en reste qu'un). */
+    fun unlinkProvider(providerId: String, onResult: (Boolean, String?) -> Unit) {
+        val user = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+            ?: return onResult(false, "Aucun utilisateur connecté.")
+        if (linkedProviderIds().size <= 1) {
+            onResult(false, "Impossible de délier votre seule méthode de connexion.")
+            return
+        }
+        user.unlink(providerId)
+            .addOnCompleteListener { task ->
+                if (task.isSuccessful) onResult(true, null)
+                else onResult(false, task.exception?.message ?: "Échec de la dissociation.")
+            }
+    }
+
+    private fun mapLinkError(e: Exception?): String = when (e) {
+        is com.google.firebase.auth.FirebaseAuthUserCollisionException ->
+            "Cette méthode est déjà associée à un autre compte."
+        is com.google.firebase.auth.FirebaseAuthInvalidCredentialsException ->
+            "Identifiant invalide ou expiré."
+        else -> e?.message ?: "Échec de la liaison."
+    }
+
+    fun loginWithPhone(uid: String, phoneNumber: String) {
+        val session = UserSession(
+            uid = uid,
+            displayName = phoneNumber,
+            email = "$phoneNumber@phone.auth",
+            photoUrl = null,
+            isLocal = false
+        )
+        _userSession.value = session
+        persistSession(session)
+        loadApiKeyForUser(uid)
+    }
+
+    /** Exporte les données du compte local courant vers [uri] (fichier de sauvegarde). */
+    fun exportLocalData(context: android.content.Context, uri: android.net.Uri, onResult: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            val ok = try {
+                context.contentResolver.openOutputStream(uri)?.use { localService.exportTo(it) }
+                true
+            } catch (e: Exception) { false }
+            onResult(ok)
+        }
+    }
+
+    /** Importe un fichier de sauvegarde dans un NOUVEAU compte local, puis s'y connecte. */
+    fun importLocalData(context: android.content.Context, uri: android.net.Uri, onResult: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            val uid = "local_import_${System.currentTimeMillis()}"
+            localService.setUserId(uid)
+            val ok = try {
+                context.contentResolver.openInputStream(uri)?.use { localService.importFrom(it) } ?: false
+            } catch (e: Exception) { false }
+            if (ok) {
+                val session = UserSession(uid, "Compte local", "$uid@local", isLocal = true)
+                _userSession.value = session
+                persistSession(session)
+                loadApiKeyForUser(uid)
+            }
+            onResult(ok)
+        }
+    }
+
+    /** Crée/ouvre un compte local : données stockées sur l'appareil, hors Firebase. */
+    fun loginLocal(name: String) {
+        val uid = "local_${name.lowercase().replace(" ", "_")}"
+        val session = UserSession(uid, name, "$uid@local", isLocal = true)
+        _userSession.value = session
+        persistSession(session)
+        loadApiKeyForUser(uid)
+    }
+
+    /**
+     * L'utilisateur refuse d'utiliser Gemini et bascule définitivement en mode IA locale.
+     * Ce choix est persisté dans les SharedPrefs.
+     */
+    fun declineGeminiForever() {
+        useLocalAi.value = true
+        prefs.edit().putBoolean("use_local_ai", true).apply()
     }
 
     fun logout() {
@@ -389,12 +757,52 @@ class SalaryViewModel(
             .remove("user_name")
             .remove("user_email")
             .remove("user_photo")
-            .remove("user_is_mock")
+            .remove("user_is_local")
             .apply()
 
         _userSession.value = null
         _currentJobId.value = null
         geminiApiKey.value = ""
+    }
+
+    /**
+     * Supprime définitivement le compte : données Realtime DB + compte Firebase Auth,
+     * puis vide la session locale (ce qui renvoie automatiquement à l'écran de connexion).
+     * Les données sont supprimées AVANT la déconnexion pour rester autorisé par les règles.
+     */
+    fun deleteAccount(onError: (String) -> Unit = {}) {
+        val session = _userSession.value
+        viewModelScope.launch {
+            // 1. Supprime les données utilisateur (tant qu'on est encore authentifié)
+            try { data.deleteAllUserData() } catch (_: Exception) {}
+
+            // 2. Supprime le compte Firebase Auth (peut échouer si la connexion n'est pas récente)
+            try {
+                com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.delete()?.await()
+            } catch (e: Exception) {
+                onError(e.message ?: "Suppression du compte Firebase impossible (reconnectez-vous puis réessayez).")
+            }
+            try { com.google.firebase.auth.FirebaseAuth.getInstance().signOut() } catch (_: Exception) {}
+
+            // 3. Nettoie les préférences locales
+            session?.let {
+                prefs.edit()
+                    .remove("gemini_api_key_${it.uid}")
+                    .remove("has_seen_onboarding_${it.uid}")
+                    .apply()
+            }
+            prefs.edit()
+                .remove("user_uid")
+                .remove("user_name")
+                .remove("user_email")
+                .remove("user_photo")
+                .remove("user_is_local")
+                .apply()
+
+            _userSession.value = null
+            _currentJobId.value = null
+            geminiApiKey.value = ""
+        }
     }
 
     private fun persistSession(session: UserSession) {
@@ -403,7 +811,7 @@ class SalaryViewModel(
             .putString("user_name", session.displayName)
             .putString("user_email", session.email)
             .putString("user_photo", session.photoUrl)
-            .putBoolean("user_is_mock", session.isMock)
+            .putBoolean("user_is_local", session.isLocal)
             .apply()
     }
 
@@ -411,7 +819,8 @@ class SalaryViewModel(
         context: android.content.Context,
         uri: android.net.Uri,
         onSuccess: (Int) -> Unit,
-        onError: (String) -> Unit
+        onError: (String) -> Unit,
+        onNeedAiChoice: () -> Unit = {}
     ) {
         val jobId = currentJobId.value
         if (jobId == null) {
@@ -422,32 +831,61 @@ class SalaryViewModel(
 
         viewModelScope.launch {
             _isRefreshing.value = true
+            _importStatus.value = ImportStatus.InProgress("Lecture du document…")
             try {
-                val text = context.contentResolver.openInputStream(uri)?.use { inputStream ->
-                    inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
-                } ?: ""
+                val mime = context.contentResolver.getType(uri) ?: ""
+                val isImage = mime.startsWith("image/")
+
+                // Image → OCR on-device (ML Kit) pour obtenir le texte ; sinon lecture directe.
+                val text = if (isImage) {
+                    _importStatus.value = ImportStatus.InProgress("Lecture de l'image (OCR)…")
+                    LocalOcrService(context).ocrImage(uri)
+                } else {
+                    context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                        inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+                    } ?: ""
+                }
 
                 if (text.isBlank()) {
-                    onError("Le fichier est vide.")
+                    val msg = if (isImage) "Aucun texte lisible dans l'image." else "Le fichier est vide."
+                    _importStatus.value = ImportStatus.Error(msg)
+                    onError(msg)
                     return@launch
                 }
 
-                var importedEntries = ExportService.parseLocalCsv(context, uri, jobId)
+                // Le parsing CSV ne s'applique qu'aux fichiers texte, pas aux images.
+                var importedEntries = if (isImage) emptyList() else ExportService.parseLocalCsv(context, uri, jobId)
 
                 if (importedEntries.isEmpty()) {
                     val apiKeyToUse = geminiApiKey.value
-                    if (apiKeyToUse.isBlank()) {
-                        onError("Le parsing local CSV a échoué. Pour importer des notes de texte via l'IA, veuillez configurer votre clé API Gemini dans les Paramètres.")
+                    // Aucune donnée CSV → on a besoin de l'IA. Si aucun mode IA n'est
+                    // encore choisi (pas de clé ET pas d'IA locale validée), on demande
+                    // à l'utilisateur via la modal au lieu de basculer silencieusement.
+                    if (apiKeyToUse.isBlank() && !useLocalAi.value) {
+                        _isRefreshing.value = false
+                        _importStatus.value = ImportStatus.Idle
+                        onNeedAiChoice()
                         return@launch
                     }
-                    val ocr = OcrService(context, apiKeyToUse)
-                    importedEntries = ocr.extractDaysFromText(text) { status -> }
+                    _importStatus.value = ImportStatus.InProgress("Analyse des journées…")
+                    if (apiKeyToUse.isBlank() || useLocalAi.value) {
+                        // Mode IA locale : ML Kit + regex
+                        val localOcr = LocalOcrService(context)
+                        importedEntries = localOcr.extractDaysFromText(text) { status -> }
+                    } else {
+                        val ocr = OcrService(context, apiKeyToUse)
+                        importedEntries = ocr.extractDaysFromText(text) { status -> }
+                    }
                 }
 
                 if (importedEntries.isEmpty()) {
-                    onError("Aucune journée de travail n'a pu être extraite de ce fichier.")
+                    val msg = "Aucune journée de travail n'a pu être extraite de ce fichier."
+                    _importStatus.value = ImportStatus.Error(msg)
+                    onError(msg)
                     return@launch
                 }
+
+                _importStatus.value = ImportStatus.InProgress("Enregistrement…")
 
                 val finalEntries = importedEntries.map { it.copy(jobId = jobId) }
 
@@ -463,7 +901,7 @@ class SalaryViewModel(
                     }
                 }
 
-                firestoreService.addDayEntries(jobId, mergedEntries)
+                data.addDayEntries(jobId, mergedEntries)
 
                 val newDates = mergedEntries.map { it.date }.toSet()
                 val remainingEntries = existingList.filter { it.date !in newDates }
@@ -471,15 +909,17 @@ class SalaryViewModel(
                 val newLivretSolde = SalaryCalculator.calculateTotalLivretFromEntries(allEntries)
 
                 if (newLivretSolde != currentJobValue.soldeLivretHeures) {
-                    firestoreService.updateJobFields(
+                    data.updateJobFields(
                         jobId,
                         mapOf("soldeLivretHeures" to newLivretSolde)
                     )
                 }
 
                 prefs.edit().putString("last_logged_date", java.time.LocalDate.now().toString()).apply()
+                _importStatus.value = ImportStatus.Success(mergedEntries.size)
                 onSuccess(mergedEntries.size)
             } catch (e: Exception) {
+                _importStatus.value = ImportStatus.Error("Erreur d'importation : ${e.message}")
                 onError("Erreur d'importation : ${e.message}")
             } finally {
                 _isRefreshing.value = false

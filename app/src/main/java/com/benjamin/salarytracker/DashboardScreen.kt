@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -48,7 +49,9 @@ fun DashboardScreen(
     connectionStatus: ConnectionStatus,
     onSeeAll: () -> Unit = {},
     isRefreshing: Boolean = false,
-    onRefresh: () -> Unit = {}
+    onRefresh: () -> Unit = {},
+    importStatus: ImportStatus = ImportStatus.Idle,
+    onDismissImport: () -> Unit = {}
 ) {
     val stats = SalaryCalculator.calculateMonthStats(job, entries, YearMonth.now())
     val contrat = SalaryCalculator.calculateContractSummary(job, entries)
@@ -70,6 +73,11 @@ fun DashboardScreen(
                     )
                     HeaderBar(job, onSelectJob, onSettings)
                 }
+            }
+
+            // Carte d'état de l'import (en cours / succès / erreur)
+            if (importStatus != ImportStatus.Idle) {
+                item { ImportStatusCard(importStatus, onDismissImport) }
             }
 
             // Carte contrat — tout en haut, fond sombre
@@ -116,7 +124,7 @@ fun DashboardScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         IconButton(onClick = { showCalendarView = false }) {
                             Icon(
-                                imageVector = Icons.Default.FormatListBulleted,
+                                imageVector = Icons.AutoMirrored.Filled.FormatListBulleted,
                                 contentDescription = "Liste",
                                 tint = if (!showCalendarView) MaterialTheme.colorScheme.primary else InkMuted,
                                 modifier = Modifier.size(20.dp)
@@ -200,7 +208,7 @@ private fun HeaderBar(job: Job, onSelectJob: () -> Unit, onSettings: () -> Unit)
         }
         SquareIconButton(Icons.Default.Settings, onClick = onSettings, active = false)
         Spacer(Modifier.width(10.dp))
-        SquareIconButton(Icons.Default.SwapHoriz, onClick = onSelectJob, active = true)
+        SquareIconButton(Icons.Default.Work, onClick = onSelectJob, active = true)
     }
 }
 
@@ -254,7 +262,10 @@ private fun MiniAreaChart(values: List<Float>, modifier: Modifier = Modifier) {
 private fun ContractCard(start: LocalDate?, end: LocalDate, contrat: SalaryCalculator.ContractSummary, onAdd: () -> Unit) {
     val today = LocalDate.now()
     val daysLeft = ChronoUnit.DAYS.between(today, end).coerceAtLeast(0)
+    val elapsedDays = if (start != null) ChronoUnit.DAYS.between(start, today).coerceAtLeast(0) else 0L
+    val elapsedWeeks = elapsedDays / 7
     val progress = contrat.progressionPct ?: 0f
+
     Box(
         modifier = Modifier.fillMaxWidth()
             .clip(RoundedCornerShape(22.dp))
@@ -275,10 +286,17 @@ private fun ContractCard(start: LocalDate?, end: LocalDate, contrat: SalaryCalcu
             }
             Spacer(Modifier.height(14.dp))
             TickBarDark(progress = progress, modifier = Modifier.fillMaxWidth())
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = "Progression temporelle du contrat (temps écoulé)",
+                color = OnWidgetMut,
+                fontSize = 11.sp,
+                style = MaterialTheme.typography.bodySmall
+            )
+            Spacer(Modifier.height(12.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                LegendDot(Color.White, "${contrat.joursTravailles}", "Jours")
-                LegendDot(MaterialTheme.colorScheme.primary, "${contrat.semainesTravaillees}", "Semaines")
+                LegendDot(Color.White, "$elapsedDays", "Jours écoulés")
+                LegendDot(MaterialTheme.colorScheme.primary, "$elapsedWeeks", "Semaines")
                 LegendDot(OnWidgetMut, fmtHours(contrat.totalHeuresReelles), "Heures")
             }
             Spacer(Modifier.height(16.dp))
@@ -297,10 +315,15 @@ private fun TickBarDark(progress: Float, modifier: Modifier = Modifier, ticks: I
     val filled = (ticks * progress.coerceIn(0f, 1f)).toInt()
     Row(modifier = modifier.height(26.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
         repeat(ticks) { i ->
-            val color = when {
-                i < filled - 4 -> Color.White
-                i < filled -> MaterialTheme.colorScheme.primary
-                else -> WidgetTrack
+            val color = if (i < filled) {
+                val fraction = if (filled > 1) i.toFloat() / (filled - 1).toFloat() else 0f
+                androidx.compose.ui.graphics.lerp(
+                    start = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
+                    stop = MaterialTheme.colorScheme.primary,
+                    fraction = fraction
+                )
+            } else {
+                WidgetTrack
             }
             Box(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(1.dp)).background(color))
         }
@@ -501,6 +524,69 @@ private fun CalendarView(
                             Box(modifier = Modifier.weight(1f).aspectRatio(1f))
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+@androidx.compose.runtime.Composable
+private fun ImportStatusCard(
+    status: ImportStatus,
+    onDismiss: () -> Unit
+) {
+    // Auto-fermeture après succès / erreur
+    androidx.compose.runtime.LaunchedEffect(status) {
+        if (status is ImportStatus.Success || status is ImportStatus.Error) {
+            kotlinx.coroutines.delay(4000)
+            onDismiss()
+        }
+    }
+
+    val (bg, fg) = when (status) {
+        is ImportStatus.Success -> androidx.compose.ui.graphics.Color(0xFFD1FAE5) to androidx.compose.ui.graphics.Color(0xFF047857)
+        is ImportStatus.Error -> androidx.compose.ui.graphics.Color(0xFFFEE2E2) to androidx.compose.ui.graphics.Color(0xFFB91C1C)
+        else -> androidx.compose.material3.MaterialTheme.colorScheme.primaryContainer to androidx.compose.material3.MaterialTheme.colorScheme.onPrimaryContainer
+    }
+
+    androidx.compose.material3.Card(
+        modifier = androidx.compose.ui.Modifier.fillMaxWidth(),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+        colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = bg),
+        elevation = androidx.compose.material3.CardDefaults.cardElevation(0.dp)
+    ) {
+        Row(
+            modifier = androidx.compose.ui.Modifier.fillMaxWidth().padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            when (status) {
+                is ImportStatus.InProgress -> androidx.compose.material3.CircularProgressIndicator(
+                    modifier = androidx.compose.ui.Modifier.size(20.dp), strokeWidth = 2.dp, color = fg
+                )
+                is ImportStatus.Success -> androidx.compose.material3.Icon(
+                    androidx.compose.material.icons.Icons.Default.CheckCircle, null, tint = fg, modifier = androidx.compose.ui.Modifier.size(22.dp)
+                )
+                is ImportStatus.Error -> androidx.compose.material3.Icon(
+                    androidx.compose.material.icons.Icons.Default.ErrorOutline, null, tint = fg, modifier = androidx.compose.ui.Modifier.size(22.dp)
+                )
+                else -> {}
+            }
+            Spacer(androidx.compose.ui.Modifier.width(12.dp))
+            androidx.compose.material3.Text(
+                text = when (status) {
+                    is ImportStatus.InProgress -> status.message
+                    is ImportStatus.Success -> "${status.count} journée(s) importée(s) ✓"
+                    is ImportStatus.Error -> status.message
+                    else -> ""
+                },
+                color = fg,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                modifier = androidx.compose.ui.Modifier.weight(1f)
+            )
+            if (status is ImportStatus.Success || status is ImportStatus.Error) {
+                androidx.compose.material3.IconButton(onClick = onDismiss, modifier = androidx.compose.ui.Modifier.size(24.dp)) {
+                    androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Default.Close, "Fermer", tint = fg, modifier = androidx.compose.ui.Modifier.size(16.dp))
                 }
             }
         }

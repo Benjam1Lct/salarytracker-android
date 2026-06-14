@@ -13,6 +13,12 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.material.icons.filled.DeleteForever
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material3.*
 import java.util.Locale
 import androidx.compose.runtime.*
@@ -39,8 +45,16 @@ fun SettingsScreen(
     onToggleDailyReminder: (Boolean) -> Unit,
     onUpdateDailyReminderTime: (Int, Int) -> Unit,
     onLogout: () -> Unit,
+    onDeleteAccount: () -> Unit,
+    onDeleteAllEntries: () -> Unit = {},
+    linkedProviders: List<String> = emptyList(),
+    onLinkGoogle: () -> Unit = {},
+    onLinkEmailAndPassword: (String, String, (Boolean, String?) -> Unit) -> Unit = { _, _, _ -> },
+    onUnlinkProvider: (String) -> Unit = {},
     onBack: () -> Unit
 ) {
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+    var showDeleteEntriesConfirm by remember { mutableStateOf(false) }
     Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).statusBarsPadding()) {
         Column(
             modifier = Modifier
@@ -120,7 +134,104 @@ fun SettingsScreen(
                         Spacer(Modifier.width(8.dp))
                         Text("Se déconnecter", fontWeight = FontWeight.SemiBold)
                     }
+
+                    Spacer(Modifier.height(10.dp))
+
+                    TextButton(
+                        onClick = { showDeleteConfirm = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.DeleteForever, null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.error)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Supprimer mon compte", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
+                    }
                 }
+
+                if (showDeleteConfirm) {
+                    AlertDialog(
+                        onDismissRequest = { showDeleteConfirm = false },
+                        icon = { Icon(Icons.Default.DeleteForever, null, tint = MaterialTheme.colorScheme.error) },
+                        title = { Text("Supprimer définitivement ?") },
+                        text = {
+                            Text(
+                                "Toutes vos données (emplois, journées, templates, bulletins) et votre compte seront supprimés définitivement. Cette action est irréversible."
+                            )
+                        },
+                        confirmButton = {
+                            Button(
+                                onClick = {
+                                    showDeleteConfirm = false
+                                    onDeleteAccount()
+                                },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.error,
+                                    contentColor = MaterialTheme.colorScheme.onError
+                                )
+                            ) { Text("Supprimer") }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showDeleteConfirm = false }) { Text("Annuler") }
+                        }
+                    )
+                }
+
+                Spacer(Modifier.height(24.dp))
+
+                SectionLabel("Données")
+                Spacer(Modifier.height(12.dp))
+                AppCard(padding = 18.dp) {
+                    Text("Supprimer toutes les journées", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "Efface toutes les journées enregistrées (tous les contrats) et remet le livret d'heures à zéro. Les contrats et entreprises sont conservés.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    OutlinedButton(
+                        onClick = { showDeleteEntriesConfirm = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                    ) {
+                        Icon(Icons.Default.DeleteSweep, null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Supprimer toutes les journées", fontWeight = FontWeight.SemiBold)
+                    }
+                }
+
+                if (showDeleteEntriesConfirm) {
+                    AlertDialog(
+                        onDismissRequest = { showDeleteEntriesConfirm = false },
+                        icon = { Icon(Icons.Default.DeleteSweep, null, tint = MaterialTheme.colorScheme.error) },
+                        title = { Text("Supprimer toutes les journées ?") },
+                        text = { Text("Toutes les journées enregistrées seront définitivement supprimées et le livret remis à zéro. Cette action est irréversible.") },
+                        confirmButton = {
+                            Button(
+                                onClick = {
+                                    showDeleteEntriesConfirm = false
+                                    onDeleteAllEntries()
+                                },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.error,
+                                    contentColor = MaterialTheme.colorScheme.onError
+                                )
+                            ) { Text("Tout supprimer") }
+                        },
+                        dismissButton = { TextButton(onClick = { showDeleteEntriesConfirm = false }) { Text("Annuler") } }
+                    )
+                }
+
+                Spacer(Modifier.height(24.dp))
+
+                SectionLabel("Méthodes de connexion")
+                Spacer(Modifier.height(12.dp))
+                LinkedAccountsSection(
+                    linkedProviders = linkedProviders,
+                    onLinkGoogle = onLinkGoogle,
+                    onLinkEmailAndPassword = onLinkEmailAndPassword,
+                    onUnlinkProvider = onUnlinkProvider
+                )
 
                 Spacer(Modifier.height(24.dp))
 
@@ -403,6 +514,137 @@ private fun ThemeOption(
                 modifier = Modifier.size(20.dp)
             )
         }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun LinkedAccountsSection(
+    linkedProviders: List<String>,
+    onLinkGoogle: () -> Unit,
+    onLinkEmailAndPassword: (String, String, (Boolean, String?) -> Unit) -> Unit,
+    onUnlinkProvider: (String) -> Unit
+) {
+    var showEmailPasswordDialog by remember { mutableStateOf(false) }
+
+    data class ProviderRow(val id: String, val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector, val onLink: () -> Unit)
+    val rows = listOf(
+        ProviderRow("google.com", "Google", Icons.Default.AccountCircle, onLinkGoogle),
+        ProviderRow("password", "E-mail", Icons.Default.Email) { showEmailPasswordDialog = true }
+    )
+
+    AppCard(padding = 18.dp) {
+        Text(
+            "Liez plusieurs méthodes à votre compte pour vous connecter de différentes façons.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(8.dp))
+        rows.forEachIndexed { index, row ->
+            val linked = row.id in linkedProviders
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(row.icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
+                Spacer(Modifier.width(12.dp))
+                Text(row.label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                if (linked) {
+                    Icon(Icons.Default.CheckCircle, "Lié", tint = Color(0xFF10B981), modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(8.dp))
+                    if (linkedProviders.size > 1) {
+                        TextButton(onClick = { onUnlinkProvider(row.id) }) {
+                            Text("Délier", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
+                } else {
+                    OutlinedButton(onClick = row.onLink, shape = RoundedCornerShape(10.dp)) {
+                        Text("Lier", style = MaterialTheme.typography.labelMedium)
+                    }
+                }
+            }
+            if (index < rows.size - 1) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        }
+    }
+
+    // Dialog : lier un e-mail et mot de passe
+    if (showEmailPasswordDialog) {
+        var email by remember { mutableStateOf("") }
+        var password by remember { mutableStateOf("") }
+        var loading by remember { mutableStateOf(false) }
+        var errorMessage by remember { mutableStateOf<String?>(null) }
+
+        AlertDialog(
+            onDismissRequest = { if (!loading) showEmailPasswordDialog = false },
+            icon = { Icon(Icons.Default.Email, null, tint = MaterialTheme.colorScheme.primary) },
+            title = { Text("Lier un e-mail") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    if (errorMessage != null) {
+                        Text(errorMessage!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    }
+                    OutlinedTextField(
+                        value = email,
+                        onValueChange = { email = it },
+                        label = { Text("Adresse e-mail") },
+                        singleLine = true,
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Email),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !loading
+                    )
+                    OutlinedTextField(
+                        value = password,
+                        onValueChange = { password = it },
+                        label = { Text("Mot de passe") },
+                        singleLine = true,
+                        visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Password),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !loading
+                    )
+                    if (loading) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                            Spacer(Modifier.width(12.dp))
+                            Text("Liaison en cours…", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        loading = true
+                        errorMessage = null
+                        onLinkEmailAndPassword(email.trim(), password) { success, err ->
+                            loading = false
+                            if (success) {
+                                showEmailPasswordDialog = false
+                            } else {
+                                errorMessage = err ?: "Une erreur est survenue."
+                            }
+                        }
+                    },
+                    enabled = email.isNotBlank() && password.length >= 6 && !loading
+                ) {
+                    Text("Lier")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showEmailPasswordDialog = false },
+                    enabled = !loading
+                ) {
+                    Text("Fermer")
+                }
+            }
+        )
     }
 }
 

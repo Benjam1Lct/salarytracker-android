@@ -13,7 +13,7 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.EventNote
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.Work
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -81,7 +81,7 @@ fun HistoryScreen(
                         }
                         SquareIconButton(Icons.Default.Settings, onClick = onSettings, active = false)
                         Spacer(Modifier.width(10.dp))
-                        SquareIconButton(Icons.Default.SwapHoriz, onClick = onSelectJob, active = true)
+                        SquareIconButton(Icons.Default.Work, onClick = onSelectJob, active = true)
                     }
                     Spacer(Modifier.height(16.dp))
                 }
