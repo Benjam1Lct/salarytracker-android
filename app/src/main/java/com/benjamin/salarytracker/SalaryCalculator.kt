@@ -44,16 +44,24 @@ object SalaryCalculator {
         /** Heures réelles au-delà de 43h (SANS la majoration, pour l'affichage) */
         val creteRealHours: Double,
         /** Nombre de jours de congé/absence dans la semaine */
-        val leaveDays: Int = 0
+        val leaveDays: Int = 0,
+        /**
+         * Vrai si cette semaine est la semaine en cours (non encore terminée).
+         * Dans ce cas, on ne déduit rien du livret et on n'affiche pas de déficit.
+         */
+        val isCurrentWeek: Boolean = false
     ) {
         /** Seuil attendu ajusté : 35h − 7h par jour de congé (plancher 0). */
         val expectedHours: Double get() = (WEEKLY_BASE - HOURS_PER_DAY * leaveDays).coerceAtLeast(0.0)
         val isOvertime: Boolean get() = realHours > WEEKLY_BASE
         val isCreteWeek: Boolean get() = realHours > LIVRET_CEILING
-        /** Semaine sous le seuil attendu → manque d'heures à combler par le livret */
-        val isUnderWeek: Boolean get() = realHours < expectedHours
+        /**
+         * Semaine sous le seuil attendu → manque d'heures à combler par le livret.
+         * Faux si la semaine est en cours : on ne peut pas encore juger.
+         */
+        val isUnderWeek: Boolean get() = !isCurrentWeek && realHours < expectedHours
         /** Heures manquantes pour atteindre le seuil (débitées du livret) */
-        val deficitHours: Double get() = (expectedHours - realHours).coerceAtLeast(0.0)
+        val deficitHours: Double get() = if (isCurrentWeek) 0.0 else (expectedHours - realHours).coerceAtLeast(0.0)
         /** Équivalent ×1.5 utilisé pour le calcul du salaire brut crête */
         val cretePayedEquivalent: Double get() = creteRealHours * CRETE_RATE
     }
@@ -145,11 +153,21 @@ object SalaryCalculator {
         return "$y-W${w.toString().padStart(2, '0')}"
     }
 
-    /** Regroupe les entrées par semaine ISO et calcule les stats de chaque semaine. */
-    fun weeklyBreakdown(entries: List<DayEntry>): List<WeekStats> {
+    /**
+     * Regroupe les entrées par semaine ISO et calcule les stats de chaque semaine.
+     * La semaine contenant [today] est marquée [WeekStats.isCurrentWeek] = true :
+     * son déficit n'est pas compté (la semaine n'est pas encore terminée).
+     */
+    fun weeklyBreakdown(
+        entries: List<DayEntry>,
+        today: LocalDate = LocalDate.now()
+    ): List<WeekStats> {
+        val currentWeek = weekKeyOf(today)
         return entries
             .groupBy { weekKeyOf(it.date) }
-            .map { (key, weekEntries) -> calculateWeekStats(key, weekEntries) }
+            .map { (key, weekEntries) ->
+                calculateWeekStats(key, weekEntries).copy(isCurrentWeek = key == currentWeek)
+            }
             .sortedBy { it.weekKey }
     }
 

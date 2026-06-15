@@ -329,14 +329,34 @@ private fun WeekCard(w: SalaryCalculator.WeekStats) {
     AppCard(padding = 14.dp) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column {
-                Text(w.weekKey, color = Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                val tag = when {
-                    w.isCreteWeek -> "Semaine crête"
-                    w.isOvertime -> "Heures sup → livret"
-                    w.isUnderWeek -> "Sous 35h → puise"
-                    else -> "Standard"
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(w.weekKey, color = Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                    if (w.isCurrentWeek) {
+                        Text(
+                            "EN COURS",
+                            color = MaterialTheme.colorScheme.primary,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier
+                                .background(
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                                    shape = RoundedCornerShape(4.dp)
+                                )
+                                .padding(horizontal = 5.dp, vertical = 2.dp)
+                        )
+                    }
                 }
-                Text(tag, color = if (w.isUnderWeek) NegRed else InkMuted, fontSize = 12.sp)
+                val (tag, tagColor) = when {
+                    w.isCreteWeek                  -> "Semaine crête" to InkMuted
+                    w.isOvertime                   -> "Heures sup → livret" to InkMuted
+                    w.isCurrentWeek && w.realHours < w.expectedHours -> {
+                        val remaining = w.expectedHours - w.realHours
+                        "Encore ${fmtHours(remaining)} pour atteindre 35h" to InkMuted
+                    }
+                    w.isUnderWeek                  -> "Sous 35h → puise ${fmtHours(w.deficitHours)} du livret" to NegRed
+                    else                           -> "Standard" to InkMuted
+                }
+                Text(tag, color = tagColor, fontSize = 12.sp)
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text(fmtHours(w.realHours), color = Ink, fontSize = 16.sp, fontWeight = FontWeight.Bold)
@@ -344,6 +364,10 @@ private fun WeekCard(w: SalaryCalculator.WeekStats) {
                     Text("+${fmtHours(w.livretCreditEquivalent)} livret", color = MaterialTheme.colorScheme.primary, fontSize = 11.sp)
                 if (w.creteRealHours > 0)
                     Text("+${fmtHours(w.creteRealHours)} crête", color = MaterialTheme.colorScheme.secondary, fontSize = 11.sp)
+                if (w.isCurrentWeek && w.realHours < w.expectedHours) {
+                    val remaining = w.expectedHours - w.realHours
+                    Text("-${fmtHours(remaining)} restantes", color = InkMuted, fontSize = 11.sp)
+                }
             }
         }
     }
