@@ -206,7 +206,7 @@ fun DashboardScreen(
                     }
                 } else {
                     items(entries.sortedByDescending { it.date }.take(15), key = { it.id }) { entry ->
-                        EntryRow(entry, onClick = { onEditEntry(entry) })
+                        EntryRow(entry, onClick = { onEditEntry(entry) }, hourlyRateBrut = job.hourlyRateBrut)
                     }
                 }
             }

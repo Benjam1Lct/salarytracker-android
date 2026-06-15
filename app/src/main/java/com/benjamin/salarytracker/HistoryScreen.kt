@@ -55,6 +55,8 @@ fun HistoryScreen(
         entries.associateBy { it.date }
     }
 
+    val netPerHour = job.hourlyRateBrut * SalaryCalculator.NET_COEFFICIENT
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -186,11 +188,25 @@ fun HistoryScreen(
                                                     fontSize = 13.sp,
                                                     fontWeight = if (isToday || entry != null) FontWeight.Bold else FontWeight.Normal
                                                 )
-                                                if (entry != null) {
+                                                if (entry != null && !entry.isLeave) {
                                                     val hrs = entry.totalHours
                                                     val hrsStr = if (hrs == hrs.toLong().toDouble()) "${hrs.toLong()}" else String.format(Locale.FRANCE, "%.1f", hrs)
                                                     Text(
-                                                        text = if (entry.isLeave) "Congé" else "${hrsStr}h",
+                                                        text = "${hrsStr}h",
+                                                        color = cellTextColor.copy(alpha = 0.85f),
+                                                        fontSize = 9.sp,
+                                                        maxLines = 1
+                                                    )
+                                                    val netDay = hrs * netPerHour
+                                                    Text(
+                                                        text = String.format(Locale.FRANCE, "%.0f€", netDay),
+                                                        color = cellTextColor.copy(alpha = 0.65f),
+                                                        fontSize = 8.sp,
+                                                        maxLines = 1
+                                                    )
+                                                } else if (entry != null && entry.isLeave) {
+                                                    Text(
+                                                        text = "Congé",
                                                         color = cellTextColor.copy(alpha = 0.8f),
                                                         fontSize = 9.sp,
                                                         maxLines = 1
@@ -273,7 +289,7 @@ fun HistoryScreen(
             } else {
                 items(monthEntries, key = { it.id }) { entry ->
                     Appear {
-                        EntryRow(entry = entry, onClick = { onEditEntry(entry) })
+                        EntryRow(entry = entry, onClick = { onEditEntry(entry) }, hourlyRateBrut = job.hourlyRateBrut)
                     }
                 }
             }

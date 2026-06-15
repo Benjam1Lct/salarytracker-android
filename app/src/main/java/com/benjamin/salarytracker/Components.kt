@@ -715,7 +715,7 @@ fun SpeedDialItem(
 }
 
 @Composable
-fun EntryRow(entry: DayEntry, onClick: () -> Unit) {
+fun EntryRow(entry: DayEntry, onClick: () -> Unit, hourlyRateBrut: Double = 0.0) {
     val fmt = DateTimeFormatter.ofPattern("EEE d MMM", Locale.FRANCE)
     AppCard(padding = 0.dp, onClick = onClick) {
         Row(modifier = Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -739,7 +739,17 @@ fun EntryRow(entry: DayEntry, onClick: () -> Unit) {
             if (entry.isLeave) {
                 Text("Congé", color = InkMuted, fontSize = 13.sp, fontWeight = FontWeight.Medium)
             } else {
-                Text(fmtHours(entry.totalHours), color = MaterialTheme.colorScheme.onPrimaryContainer, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(fmtHours(entry.totalHours), color = MaterialTheme.colorScheme.onPrimaryContainer, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                    if (hourlyRateBrut > 0.0) {
+                        val net = entry.totalHours * hourlyRateBrut * SalaryCalculator.NET_COEFFICIENT
+                        Text(
+                            text = String.format(Locale.FRANCE, "~%.2f €", net),
+                            color = InkMuted,
+                            fontSize = 11.sp
+                        )
+                    }
+                }
             }
         }
     }
