@@ -1,68 +1,144 @@
-# 📊 SalaryTracker — Android
+# SalaryTracker — Android
 
-> Application Android de suivi des heures de travail, de simulation de salaire et de gestion du livret d'heures, pour contrats de modulation agricole et autres types de contrats.
+> **Suivez vos heures, simulez votre salaire, pilotez votre contrat.**
+> Application Android pensée pour les contrats de modulation agricole, CDD, CDI, alternance et bien plus.
 
-[![Android](https://img.shields.io/badge/Platform-Android%208%2B-green.svg)]()
-[![Kotlin](https://img.shields.io/badge/Kotlin-Jetpack%20Compose-blue.svg)]()
-[![Firebase](https://img.shields.io/badge/Backend-Firebase%20Realtime%20DB-orange.svg)]()
+<p align="center">
+  <img src="media/screen1.png" width="160"/>
+  &nbsp;&nbsp;
+  <img src="media/screen2.png" width="160"/>
+  &nbsp;&nbsp;
+  <img src="media/screen3.png" width="160"/>
+  &nbsp;&nbsp;
+  <img src="media/screen4.png" width="160"/>
+</p>
+
+<p align="center">
+  <a href="https://github.com/Benjam1Lct/salarytracker-android/releases/latest">
+    <img src="https://img.shields.io/badge/Version-1.2-6C63FF?style=for-the-badge&logo=android" alt="Version 1.2"/>
+  </a>
+  &nbsp;
+  <img src="https://img.shields.io/badge/Android-8%2B-3DDC84?style=for-the-badge&logo=android" alt="Android 8+"/>
+  &nbsp;
+  <img src="https://img.shields.io/badge/Kotlin-Compose-7F52FF?style=for-the-badge&logo=kotlin" alt="Kotlin Compose"/>
+  &nbsp;
+  <img src="https://img.shields.io/badge/Backend-Firebase-FFCA28?style=for-the-badge&logo=firebase&logoColor=black" alt="Firebase"/>
+</p>
 
 ---
 
-## ✨ Fonctionnalités principales
+## ✨ Fonctionnalités
 
 | Fonctionnalité | Description |
-|---|---|
-| 🏢 **Multi-emplois** | Gérez plusieurs entreprises avec leurs contrats (CDI, CDD, Intérim, Mission, Alternance, Stage) |
-| ⏱️ **Suivi des heures** | Saisissez vos journées manuellement, via templates ou en saisie automatique |
-| 🤖 **IA Gemini** | Importez vos contrats et fiches de paie par photo/PDF — extraction automatique des données |
-| 📱 **IA Locale (ML Kit)** | Analyse on-device sans clé API — 100% hors-ligne et gratuit |
-| 📅 **Saisie automatique** | Règles de remplissage auto des journées (avec rattrapage des jours manqués) |
-| 📊 **Statistiques** | Salaire net estimé, solde livret, progression du contrat, comparaison avec fiches de paie |
-| 🔔 **Rappels quotidiens** | Notifications pour ne pas oublier de saisir vos heures |
-| 🎨 **6 thèmes** | Purple, Bleu, Vert, Orange, Rouge, Rose — avec icône de lanceur dynamique |
-| 📦 **Widgets** | Widgets écran d'accueil (petit et grand) pour voir le solde rapidement |
+|:---|:---|
+| 🏢 **Multi-emplois** | Gérez plusieurs entreprises — CDI, CDD, Intérim, Alternance, Stage |
+| ⏱️ **Saisie des heures** | Saisie manuelle, par template ou en remplissage automatique |
+| 🤖 **IA Gemini** | Importez contrats et fiches de paie par photo ou PDF |
+| 📱 **IA locale (ML Kit)** | Analyse on-device — 100 % hors-ligne, sans clé API |
+| 📊 **Statistiques & progression** | Salaire net estimé, solde livret, **progression du contrat en temps réel**, projection de fin de contrat |
+| 📅 **Saisie automatique** | Règles de remplissage auto avec rattrapage des jours manqués |
+| 🔔 **Rappels quotidiens** | Notifications pour ne pas oublier de pointer |
+| 🎨 **6 thèmes de couleur** | Purple, Bleu, Vert, Orange, Rouge, Rose — avec icône dynamique |
+| 📦 **Widgets** | Widget écran d'accueil (petit & grand) pour consulter le solde d'un coup d'œil |
 
-### Authentification
-- ✅ Connexion E-mail & Mot de passe (Firebase Auth)
-- ✅ Connexion Google (Firebase)
-- ✅ Connexion Facebook (Firebase OAuth)
-- ✅ Mode Invité / Démo (pas de compte requis)
+### Connexion
 
-### Gestion des heures supplémentaires
-L'app supporte 6 modes de gestion :
-- **Payées** — Majoration +25%/+50% directe
-- **Livret / Modulation** — 35–43h créditées, au-delà payées (contrats agricoles)
-- **Récupération** — Heure pour heure, génère des repos compensateurs
-- **CET** — Compte Épargne-Temps avec accumulation
-- **Mixte** — Quota livret + paiement au-delà
-- **Forfait Jours** — Pour les cadres (~218 jours/an)
+- ✅ E-mail & Mot de passe (Firebase Auth)
+- ✅ Compte Google
+- ✅ Compte Facebook
+- ✅ Mode Invité / Démo (sans compte)
+
+### Modes de gestion des heures supplémentaires
+
+| Mode | Fonctionnement |
+|:---|:---|
+| **Payées** | Majoration +25 % / +50 % en paiement direct |
+| **Livret / Modulation** | 35–43 h créditées au livret, au-delà payées (+50 %) — *contrats agricoles* |
+| **Récupération** | Heure pour heure, génère des repos compensateurs |
+| **CET** | Compte Épargne-Temps avec accumulation |
+| **Mixte** | Quota livret + paiement au-delà |
+| **Forfait Jours** | Pour les cadres (~218 jours/an) |
 
 ---
 
-## 🚀 Installation & Configuration
+## 🚀 Changelog
 
-### Prérequis
+### v1.2 — Juin 2026
+
+- 🕐 **Progression du contrat en temps réel** — la barre de complétion monte désormais en continu tout au long de la journée (précision à la seconde), et non plus une fois par jour à minuit
+- 🔄 **Synchronisation hors-ligne** — les données saisies sans connexion sont synchronisées automatiquement au retour du réseau
+- 📈 **Suivi de session amélioré** — indicateurs de statut plus précis et réactifs
+- 🔒 **Suppression de journée sécurisée** — correction d'un bug de suppression d'entrée
+- ⚙️ **Boutons désactivés contextuellement** — évite les doubles-soumissions
+
+### v1.1 — Connexion E-mail & Archivage
+
+- Connexion e-mail / mot de passe
+- Archivage automatique des contrats terminés
+- Indicateur de statut de connexion avec reconnexion automatique
+- Améliorations UI
+
+### v1.0 — Lancement
+
+- Première version publique
+- Connexion Google & Firebase
+- Livret de modulation complet
+- Widgets & notifications
+
+---
+
+## 📲 Installation
+
+### Option A — Télécharger l'APK
+
+> **[⬇️ Télécharger SalaryTracker v1.2](https://github.com/Benjam1Lct/salarytracker-android/releases/download/v1.2/SalaryTracker-v1.2.apk)**
+
+1. Autorisez l'installation depuis des sources inconnues *(Paramètres → Sécurité)*
+2. Ouvrez le fichier `.apk` téléchargé
+3. Installez et lancez l'app
+
+### Option B — Compiler depuis les sources
+
+#### Prérequis
+
 - Android Studio Hedgehog (ou plus récent)
 - JDK 11+
-- Compte Firebase
+- Un projet Firebase configuré
 
-### 1. Cloner le projet
+#### Étapes
 
 ```bash
-git clone <url-du-repo>
+# 1. Cloner le dépôt
+git clone https://github.com/Benjam1Lct/salarytracker-android.git
 cd salarytracker-android
+
+# 2. Placer google-services.json dans /app/
+# (téléchargé depuis console.firebase.google.com)
+
+# 3. Compiler en debug
+./gradlew assembleDebug
+
+# 4. Compiler en release (nécessite keystore.properties)
+./gradlew assembleRelease
 ```
 
-### 2. Configurer Firebase
+---
 
-1. Crée un projet sur [console.firebase.google.com](https://console.firebase.google.com)
-2. Ajoute une app Android avec le package `com.benjamin.salarytracker`
-3. Télécharge `google-services.json` et place-le dans `/app/`
-4. Active dans **Authentication → Sign-in method** :
+## ⚙️ Configuration Firebase
+
+### 1. Créer le projet Firebase
+
+1. Rendez-vous sur [console.firebase.google.com](https://console.firebase.google.com)
+2. Créez une application Android avec le package `com.benjamin.salarytracker`
+3. Téléchargez `google-services.json` et placez-le dans `/app/`
+4. Activez dans **Authentication → Méthodes de connexion** :
    - ✅ Google
-   - ✅ Facebook (voir config ci-dessous)
-   - ✅ Téléphone
-5. Active **Realtime Database** et configure les règles de sécurité :
+   - ✅ E-mail / Mot de passe
+   - ✅ Facebook *(voir ci-dessous)*
+
+### 2. Configurer Realtime Database
+
+Activez **Realtime Database** et appliquez ces règles de sécurité :
 
 ```json
 {
@@ -79,110 +155,85 @@ cd salarytracker-android
 
 ### 3. Configurer Facebook Login
 
-1. Crée une app sur [developers.facebook.com](https://developers.facebook.com/apps)
-2. Dans **Facebook Login → Paramètres** → ajoute l'URI de redirection :
+1. Créez une app sur [developers.facebook.com](https://developers.facebook.com/apps)
+2. Dans **Facebook Login → Paramètres**, ajoutez l'URI de redirection :
    ```
    https://<YOUR_PROJECT_ID>.firebaseapp.com/__/auth/handler
    ```
-3. Dans Firebase Console → **Authentication → Facebook** → colle l'App ID + Secret Facebook
+3. Dans Firebase Console → **Authentication → Facebook** → collez l'App ID + Secret
 
-### 4. Clé de signature (SHA-1/SHA-256)
+### 4. Clés SHA (Auth Google)
 
-Ajoute ton SHA-1 **et** SHA-256 dans les paramètres du projet Firebase pour permettre la connexion Google et Firebase Auth.
+Ajoutez votre SHA-1 **et** SHA-256 dans les paramètres Firebase pour activer la connexion Google.
 
 ### 5. (Optionnel) Clé API Gemini
 
-L'app fonctionne sans clé Gemini grâce à l'IA locale. Pour activer l'analyse Gemini :
+L'app fonctionne sans clé Gemini grâce à l'IA locale. Pour activer l'analyse cloud :
 
-1. Obtiens une clé gratuite sur [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)
-2. Dans l'app → **Paramètres → Intelligence Artificielle** → Colle ta clé
-
-### 6. Compiler et lancer
-
-```bash
-./gradlew assembleDebug
-# ou via Android Studio : Run > Run 'app'
-```
+1. Obtenez une clé gratuite sur [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)
+2. Dans l'app → **Paramètres → Intelligence Artificielle** → collez votre clé
 
 ---
 
-## 📱 Guide d'utilisation
+## 📱 Guide d'utilisation rapide
 
-### 1. Premier lancement
+### Premier lancement
+
 Un onboarding de 7 slides vous guide à travers toutes les fonctionnalités. Vous pouvez le passer à tout moment.
 
-### 2. Ajouter votre premier emploi
-1. Appuyez sur **+ Ajouter un emploi** dans l'écran de sélection
+### Ajouter un emploi
+
+1. Appuyez sur **+ Ajouter un emploi**
 2. Choisissez le **type de contrat** (CDI, CDD, Intérim…)
-3. Renseignez l'entreprise, le taux horaire, les heures hebdomadaires
-4. Choisissez le **mode de gestion des heures sup** (Payées, Livret, CET…)
-5. **Optionnel** : Importez votre contrat (photo/PDF) pour remplir automatiquement via IA
+3. Renseignez l'entreprise, le taux horaire et les heures hebdomadaires
+4. Sélectionnez le **mode de gestion des heures sup**
+5. *(Optionnel)* Importez votre contrat par photo / PDF pour un remplissage automatique
 
-### 3. Saisir une journée
-- **Bouton + (tableau de bord)** → Saisie manuelle ou via template
-- **Calendrier** → Touchez un jour pour l'ajouter
-- Ou configurez la **saisie automatique** pour les journées récurrentes
+### Saisir une journée
 
-### 4. Créer un template d'horaire
-1. **Paramètres → Gérer les templates**
-2. Définissez heure de début, de fin, et les pauses
-3. Le template peut être utilisé dans la saisie manuelle ou les règles auto
+| Méthode | Comment |
+|:---|:---|
+| Saisie manuelle | **+ (tableau de bord)** → Choisissez l'heure ou un template |
+| Via le calendrier | Touchez un jour dans l'onglet Calendrier |
+| Automatiquement | Configurez une règle dans l'onglet **Auto** |
 
-### 5. Importer une fiche de paie
+### Importer une fiche de paie
+
 1. Onglet **Stats → Bulletins de paie**
-2. Appuyez sur **+** → Sélectionnez une photo ou PDF
+2. Appuyez sur **+** → Sélectionnez une photo ou un PDF
 3. L'IA extrait automatiquement : brut, net, cotisations, heures payées
 4. Comparez avec votre estimation mensuelle
 
-### 6. Saisie automatique
-1. Onglet **Auto** → Ajouter une règle
-2. Choisissez un template et les jours de la semaine
-3. Mode : **Continue** (jusqu'à désactivation) ou **Période** (dates définies)
-4. L'app rattrape automatiquement les journées manquées à chaque ouverture
-
 ---
 
-## 🔐 Sécurité Firebase (Production)
-
-Voir le [Guide de Sécurité Firebase](FIREBASE_SECURITY.md) pour la checklist complète de mise en production.
-
-**Résumé rapide :**
-- Configurez les règles Realtime DB (voir section installation)
-- Enregistrez SHA-1 + SHA-256 dans Firebase
-- Activez App Check (Play Integrity)
-- Restreignez les clés API dans Google Cloud Console
-- Activez la minification ProGuard/R8 en release
-
----
-
-## 🏗️ Architecture technique
+## 🏗️ Architecture
 
 ```
 app/
-├── MainActivity.kt          # Navigation + Auth handlers (Google, Facebook, Phone OTP)
+├── MainActivity.kt          # Navigation + Auth (Google, Facebook, Phone OTP)
 ├── SalaryViewModel.kt       # ViewModel central (MVVM)
 ├── FirestoreService.kt      # Couche de données Firebase Realtime DB
 ├── Models.kt                # Job, DayEntry, Payslip, ContractType, OvertimeMode
-├── SalaryCalculator.kt      # Moteur de calcul (livret, modulation, hors sup)
-├── OcrService.kt            # Analyse IA via Gemini 2.5 Flash REST API
-├── LocalOcrService.kt       # Analyse IA locale via ML Kit + regex
-├── GeminiKeyModal.kt        # Modal de configuration de la clé Gemini
-├── LoginScreen.kt           # Écran d'authentification + Onboarding 7 slides
-├── CreateJobScreen.kt       # Création / édition d'un emploi + types de contrats
-├── JobSelectionScreen.kt    # Sélection avec groupement par entreprise
+├── SalaryCalculator.kt      # Moteur de calcul (livret, modulation, heures sup)
+├── OcrService.kt            # IA cloud via Gemini 2.5 Flash REST API
+├── LocalOcrService.kt       # IA locale via ML Kit + regex
+├── GeminiKeyModal.kt        # Configuration de la clé Gemini
+├── LoginScreen.kt           # Authentification + Onboarding 7 slides
+├── CreateJobScreen.kt       # Création / édition d'un emploi
 ├── DashboardScreen.kt       # Tableau de bord mensuel
-├── SettingsScreen.kt        # Paramètres (thème, clé API, rappels)
+├── StatsScreen.kt           # Statistiques & progression du contrat
+├── SettingsScreen.kt        # Paramètres (thème, IA, rappels)
 └── ...
 ```
 
 ### Stack technique
 
 | Couche | Technologie |
-|---|---|
+|:---|:---|
 | UI | Jetpack Compose + Material 3 |
 | Architecture | MVVM + StateFlow |
 | Backend | Firebase Realtime Database |
-| Auth | Firebase Authentication (Google, Facebook, Phone) |
+| Auth | Firebase Auth (Google, Facebook, Email) |
 | IA Cloud | Gemini 2.5 Flash REST API |
 | IA Locale | ML Kit Text Recognition (on-device) |
 | Navigation | Navigation Compose |
@@ -191,37 +242,12 @@ app/
 
 ---
 
-## 🧪 Tests
+## 🔐 Sécurité
 
-```bash
-# Tests unitaires
-./gradlew test
-
-# Tests instrumentation
-./gradlew connectedAndroidTest
-```
-
-
-
----
-
-## 📦 Build de production
-
-1. Configure `keystore.properties` à la racine :
-```properties
-keyAlias=your_key_alias
-keyPassword=your_key_password
-storeFile=/path/to/your.keystore
-storePassword=your_store_password
-```
-
-2. Active la minification dans `build.gradle.kts` (release)
-
-3. Build :
-```bash
-./gradlew bundleRelease   # AAB pour Play Store
-./gradlew assembleRelease  # APK
-```
+- Règles Realtime DB par `uid` (isolation totale des données utilisateurs)
+- SHA-1 + SHA-256 enregistrés dans Firebase
+- Clés API restreintes dans Google Cloud Console
+- Minification ProGuard/R8 en release
 
 ---
 

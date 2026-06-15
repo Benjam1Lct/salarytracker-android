@@ -1,6 +1,7 @@
 package com.benjamin.salarytracker
 
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.YearMonth
 import java.time.temporal.ChronoUnit
 import java.time.temporal.WeekFields
@@ -235,8 +236,9 @@ object SalaryCalculator {
     fun calculateContractSummary(
         job: Job,
         entries: List<DayEntry>,
-        today: LocalDate = LocalDate.now()
+        now: LocalDateTime = LocalDateTime.now()
     ): ContractSummary {
+        val today = now.toLocalDate()
         val weeks = weeklyBreakdown(entries)
         val est = estimateEarnings(job, entries)
         val soldeLivret = calculateTotalLivretFromEntries(entries, today)
@@ -245,17 +247,20 @@ object SalaryCalculator {
         val moyenne = if (weeks.isNotEmpty()) est.heuresReelles / weeks.size else 0.0
 
         // Progression + projection si les dates du contrat sont définies
+        // On utilise les secondes pour que le pourcentage monte tout au long de la journée
         val start = job.startDate
         val end = job.endDate
         var progression: Float? = null
         var projectionNet: Double? = null
         if (start != null && end != null && end.isAfter(start)) {
-            val totalDays = ChronoUnit.DAYS.between(start, end).coerceAtLeast(1)
-            val elapsedDays = ChronoUnit.DAYS.between(start, today).coerceIn(0, totalDays)
-            progression = (elapsedDays.toFloat() / totalDays.toFloat()).coerceIn(0f, 1f)
-            if (elapsedDays > 0 && est.net > 0) {
-                // Projection linéaire : net gagné jusqu'ici rapporté à toute la durée
-                projectionNet = est.net / elapsedDays * totalDays
+            val startDt = start.atStartOfDay()
+            val endDt = end.atStartOfDay()
+            val totalSeconds = ChronoUnit.SECONDS.between(startDt, endDt).coerceAtLeast(1)
+            val elapsedSeconds = ChronoUnit.SECONDS.between(startDt, now).coerceIn(0, totalSeconds)
+            progression = (elapsedSeconds.toFloat() / totalSeconds.toFloat()).coerceIn(0f, 1f)
+            // Pour la projection on garde la granularité en secondes
+            if (elapsedSeconds > 0 && est.net > 0) {
+                projectionNet = est.net / elapsedSeconds * totalSeconds
             }
         }
 
