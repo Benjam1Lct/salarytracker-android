@@ -190,8 +190,7 @@ fun SalaryTrackerApp(
     var googleErrorCode by remember { mutableStateOf("") }
     var googleErrorMessage by remember { mutableStateOf("") }
 
-    // ─── État Phone OTP ──────────────────────────────────────────────────
-    var phoneOtpState: PhoneOtpState by remember { mutableStateOf(PhoneOtpState.Idle) }
+
 
     // ─── Liaison de comptes (account linking) ─────────────────────────────
     var linkedProviders by remember { mutableStateOf(viewModel.linkedProviderIds()) }
@@ -357,79 +356,7 @@ fun SalaryTrackerApp(
 
 
 
-    // ─── Phone OTP handler ─────────────────────────────────────────────
-    val sendPhoneCode: (String) -> Unit = { phoneNumber ->
-        phoneOtpState = PhoneOtpState.SendingCode
-        val activity = context.findActivity()
-        if (activity != null) {
-            val callbacks = object : com.google.firebase.auth.PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
-                override fun onVerificationCompleted(credential: com.google.firebase.auth.PhoneAuthCredential) {
-                    // Verification automatique (SMS auto-fill)
-                    com.google.firebase.auth.FirebaseAuth.getInstance()
-                        .signInWithCredential(credential)
-                        .addOnCompleteListener { task ->
-                            if (task.isSuccessful) {
-                                val user = task.result?.user
-                                scope.launch {
-                                    loginStatus = "SUCCESS"
-                                    delay(1200)
-                                    if (user != null) viewModel.loginWithPhone(user.uid, phoneNumber)
-                                    loginStatus = "IDLE"
-                                    phoneOtpState = PhoneOtpState.Idle
-                                }
-                            } else {
-                                phoneOtpState = PhoneOtpState.Error("Verification automatique échouée")
-                            }
-                        }
-                }
 
-                override fun onVerificationFailed(e: com.google.firebase.FirebaseException) {
-                    phoneOtpState = PhoneOtpState.Error(e.message ?: "Erreur de verification téléphone")
-                }
-
-                override fun onCodeSent(verificationId: String, token: com.google.firebase.auth.PhoneAuthProvider.ForceResendingToken) {
-                    viewModel.phoneVerificationId = verificationId
-                    phoneOtpState = PhoneOtpState.WaitingForCode(phoneNumber)
-                }
-            }
-
-            val options = com.google.firebase.auth.PhoneAuthOptions.newBuilder(com.google.firebase.auth.FirebaseAuth.getInstance())
-                .setPhoneNumber(normalizeFrPhone(phoneNumber))
-                .setTimeout(60L, java.util.concurrent.TimeUnit.SECONDS)
-                .setActivity(activity)
-                .setCallbacks(callbacks)
-                .build()
-            com.google.firebase.auth.PhoneAuthProvider.verifyPhoneNumber(options)
-        } else {
-            phoneOtpState = PhoneOtpState.Error("Impossible d'accéder à l'activité")
-        }
-    }
-
-    val verifyOtpCode: (String) -> Unit = { code ->
-        val verificationId = viewModel.phoneVerificationId
-        if (verificationId != null) {
-            phoneOtpState = PhoneOtpState.VerifyingCode
-            val credential = com.google.firebase.auth.PhoneAuthProvider.getCredential(verificationId, code)
-            com.google.firebase.auth.FirebaseAuth.getInstance()
-                .signInWithCredential(credential)
-                .addOnCompleteListener { task ->
-                    if (task.isSuccessful) {
-                        val user = task.result?.user
-                        scope.launch {
-                            loginStatus = "SUCCESS"
-                            delay(1200)
-                            if (user != null) viewModel.loginWithPhone(user.uid, user.phoneNumber ?: "")
-                            loginStatus = "IDLE"
-                            phoneOtpState = PhoneOtpState.Idle
-                        }
-                    } else {
-                        phoneOtpState = PhoneOtpState.Error(task.exception?.message ?: "Code incorrect")
-                    }
-                }
-        } else {
-            phoneOtpState = PhoneOtpState.Error("ID de vérification manquant. Renvoyez le code.")
-        }
-    }
 
     // Rattrapage de la saisie auto dès que règles + templates sont chargés
     LaunchedEffect(currentJobId, autoRules, templates) {
@@ -527,9 +454,6 @@ fun SalaryTrackerApp(
                 LoginScreen(
                     loginStatus = loginStatus,
                     onGoogleSignInClick = { triggerGoogleSignIn() },
-                    onPhoneSignInClick = { phone -> sendPhoneCode(phone) },
-                    onVerifyOtp = { code -> verifyOtpCode(code) },
-                    phoneOtpState = phoneOtpState,
                     onLocalSignInClick = { name ->
                         scope.launch {
                             loginStatus = "CONNECTING"

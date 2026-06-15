@@ -60,9 +60,6 @@ import kotlinx.coroutines.launch
 fun LoginScreen(
     loginStatus: String,
     onGoogleSignInClick: () -> Unit,
-    onPhoneSignInClick: (String) -> Unit,
-    onVerifyOtp: (String) -> Unit,
-    phoneOtpState: PhoneOtpState,
     onLocalSignInClick: (String) -> Unit,
     onImportData: () -> Unit = {},
     onEmailSignIn: (String, String, (Boolean, String?) -> Unit) -> Unit = { _, _, _ -> },
@@ -232,14 +229,7 @@ fun LoginScreen(
 
                         Spacer(modifier = Modifier.height(10.dp))
 
-                        // ─── Connexion par téléphone ────────────────────────
-                        PhoneLoginSection(
-                            phoneOtpState = phoneOtpState,
-                            onPhoneSignInClick = onPhoneSignInClick,
-                            onVerifyOtp = onVerifyOtp
-                        )
 
-                        Spacer(modifier = Modifier.height(10.dp))
 
                         // ─── Connexion par E-mail & Mot de passe ────────────
                         EmailPasswordLoginSection(
@@ -354,156 +344,7 @@ fun LoginScreen(
     }
 }
 
-/** État du flux d'authentification par téléphone */
-sealed interface PhoneOtpState {
-    object Idle : PhoneOtpState
-    object SendingCode : PhoneOtpState
-    data class WaitingForCode(val phoneNumber: String) : PhoneOtpState
-    object VerifyingCode : PhoneOtpState
-    data class Error(val message: String) : PhoneOtpState
-}
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun PhoneLoginSection(
-    phoneOtpState: PhoneOtpState,
-    onPhoneSignInClick: (String) -> Unit,
-    onVerifyOtp: (String) -> Unit
-) {
-    var phoneNumber by remember { mutableStateOf("+33") }
-    var otpCode by remember { mutableStateOf("") }
-    var expanded by remember { mutableStateOf(false) }
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-        ),
-        elevation = CardDefaults.cardElevation(0.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { expanded = !expanded },
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Default.Phone,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        "Connexion par téléphone (SMS)",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-                Icon(
-                    if (expanded) Icons.Default.ArrowForward else Icons.Default.NavigateNext,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(16.dp)
-                )
-            }
-
-            if (expanded) {
-                Spacer(Modifier.height(12.dp))
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                Spacer(Modifier.height(12.dp))
-
-                when (phoneOtpState) {
-                    is PhoneOtpState.Idle, is PhoneOtpState.Error -> {
-                        if (phoneOtpState is PhoneOtpState.Error) {
-                            Text(
-                                phoneOtpState.message,
-                                color = MaterialTheme.colorScheme.error,
-                                style = MaterialTheme.typography.bodySmall,
-                                modifier = Modifier.padding(bottom = 8.dp)
-                            )
-                        }
-                        OutlinedTextField(
-                            value = phoneNumber,
-                            onValueChange = { phoneNumber = it },
-                            label = { Text("Numéro de téléphone") },
-                            placeholder = { Text("+33 6 12 34 56 78") },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        Spacer(Modifier.height(10.dp))
-                        Button(
-                            onClick = { onPhoneSignInClick(phoneNumber.trim()) },
-                            enabled = phoneNumber.length >= 10,
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Text("Envoyer le code SMS", fontWeight = FontWeight.SemiBold)
-                        }
-                    }
-
-                    is PhoneOtpState.SendingCode -> {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.Center,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                            Spacer(Modifier.width(12.dp))
-                            Text("Envoi du code SMS…", style = MaterialTheme.typography.bodySmall)
-                        }
-                    }
-
-                    is PhoneOtpState.WaitingForCode -> {
-                        Text(
-                            "Code envoyé au ${phoneOtpState.phoneNumber}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(Modifier.height(10.dp))
-                        OutlinedTextField(
-                            value = otpCode,
-                            onValueChange = { if (it.length <= 6) otpCode = it },
-                            label = { Text("Code de vérification (6 chiffres)") },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        Spacer(Modifier.height(10.dp))
-                        Button(
-                            onClick = { onVerifyOtp(otpCode) },
-                            enabled = otpCode.length == 6,
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Text("Vérifier le code", fontWeight = FontWeight.SemiBold)
-                        }
-                    }
-
-                    is PhoneOtpState.VerifyingCode -> {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.Center,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                            Spacer(Modifier.width(12.dp))
-                            Text("Vérification du code…", style = MaterialTheme.typography.bodySmall)
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
 
 @Composable
 fun ConnectingStateView() {
