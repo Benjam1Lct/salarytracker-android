@@ -138,7 +138,10 @@ fun HistoryScreen(
 
                         for (r in 0 until rows) {
                             Row(
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(64.dp)
+                                    .padding(vertical = 3.dp),
                                 horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
                                 for (c in 0 until 7) {
@@ -167,7 +170,7 @@ fun HistoryScreen(
                                         Box(
                                             modifier = Modifier
                                                 .weight(1f)
-                                                .heightIn(min = 56.dp)
+                                                .fillMaxHeight()
                                                 .clip(RoundedCornerShape(8.dp))
                                                 .background(cellColor)
                                                 .then(
@@ -183,31 +186,38 @@ fun HistoryScreen(
                                         ) {
                                             Column(
                                                 horizontalAlignment = Alignment.CenterHorizontally,
-                                                verticalArrangement = Arrangement.Center,
-                                                modifier = Modifier.padding(vertical = 6.dp)
+                                                verticalArrangement = Arrangement.Center
                                             ) {
                                                 Text(
                                                     text = "$dayNum",
                                                     color = cellTextColor,
                                                     fontSize = 13.sp,
-                                                    fontWeight = if (isToday || entry != null) FontWeight.Bold else FontWeight.Normal
+                                                    fontWeight = FontWeight.Bold
                                                 )
                                                 if (entry != null && !entry.isLeave) {
                                                     val hrs = entry.totalHours
                                                     val hrsStr = if (hrs == hrs.toLong().toDouble()) "${hrs.toLong()}" else String.format(Locale.FRANCE, "%.1f", hrs)
-                                                    Text(
-                                                        text = "${hrsStr}h",
-                                                        color = cellTextColor.copy(alpha = 0.85f),
-                                                        fontSize = 9.sp,
-                                                        maxLines = 1
-                                                    )
-                                                    val netDay = hrs * netPerHour
-                                                    Text(
-                                                        text = String.format(Locale.FRANCE, "%.0f€", netDay),
-                                                        color = cellTextColor.copy(alpha = 0.65f),
-                                                        fontSize = 8.sp,
-                                                        maxLines = 1
-                                                    )
+                                                    // Heures + prix collés ensemble dans une sous-colonne sans espacement
+                                                    Column(
+                                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                                        verticalArrangement = Arrangement.spacedBy(0.dp)
+                                                    ) {
+                                                        Text(
+                                                            text = "${hrsStr}h",
+                                                            color = cellTextColor.copy(alpha = 0.85f),
+                                                            fontSize = 9.sp,
+                                                            maxLines = 1,
+                                                            lineHeight = 11.sp
+                                                        )
+                                                        val netDay = hrs * netPerHour
+                                                        Text(
+                                                            text = String.format(Locale.FRANCE, "%.0f€", netDay),
+                                                            color = cellTextColor.copy(alpha = 0.6f),
+                                                            fontSize = 8.sp,
+                                                            maxLines = 1,
+                                                            lineHeight = 10.sp
+                                                        )
+                                                    }
                                                 } else if (entry != null && entry.isLeave) {
                                                     Text(
                                                         text = "Congé",
@@ -219,7 +229,7 @@ fun HistoryScreen(
                                             }
                                         }
                                     } else {
-                                        Box(modifier = Modifier.weight(1f).aspectRatio(1f))
+                                        Box(modifier = Modifier.weight(1f).fillMaxHeight())
                                     }
                                 }
                             }
