@@ -167,7 +167,7 @@ fun HistoryScreen(
                                         Box(
                                             modifier = Modifier
                                                 .weight(1f)
-                                                .aspectRatio(1f)
+                                                .heightIn(min = 56.dp)
                                                 .clip(RoundedCornerShape(8.dp))
                                                 .background(cellColor)
                                                 .then(
@@ -181,7 +181,11 @@ fun HistoryScreen(
                                                 },
                                             contentAlignment = Alignment.Center
                                         ) {
-                                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                            Column(
+                                                horizontalAlignment = Alignment.CenterHorizontally,
+                                                verticalArrangement = Arrangement.Center,
+                                                modifier = Modifier.padding(vertical = 6.dp)
+                                            ) {
                                                 Text(
                                                     text = "$dayNum",
                                                     color = cellTextColor,
