@@ -26,7 +26,7 @@ class FirestoreService {
     private val db = FirebaseDatabase.getInstance(SalaryApp.DB_URL)
     private var _userId = "user_benjamin"
     val userId: String get() = _userId
-    private var userRef = db.getReference("users").child(_userId)
+    var userRef = db.getReference("users").child(_userId)
 
     fun setUserId(newUserId: String) {
         _userId = newUserId
@@ -158,13 +158,14 @@ class FirestoreService {
         awaitClose { ref.removeEventListener(listener) }
     }
 
-    suspend fun addCompany(company: Company) {
+    suspend fun addCompany(company: Company, updatedAt: Long = System.currentTimeMillis()) {
         userRef.child("companies").child(company.id)
-            .setValue(mapOf("name" to company.name)).await()
+            .setValue(mapOf("name" to company.name, "updatedAt" to updatedAt)).await()
     }
 
-    suspend fun deleteCompany(companyId: String) {
+    suspend fun deleteCompany(companyId: String, timestamp: Long = System.currentTimeMillis()) {
         userRef.child("companies").child(companyId).removeValue().await()
+        userRef.child("deleted").child(companyId).setValue(timestamp).await()
     }
 
     fun getJobs(): Flow<List<Job>> = callbackFlow {
@@ -206,21 +207,28 @@ class FirestoreService {
         awaitClose { ref.removeEventListener(listener) }
     }
 
-    suspend fun addJob(job: Job) {
-        userRef.child("jobs").child(job.id).setValue(job.toMap()).await()
+    suspend fun addJob(job: Job, updatedAt: Long = System.currentTimeMillis()) {
+        val map = job.toMap().toMutableMap()
+        map["updatedAt"] = updatedAt
+        userRef.child("jobs").child(job.id).setValue(map).await()
     }
 
-    suspend fun updateJob(job: Job) {
-        userRef.child("jobs").child(job.id).updateChildren(job.toMap()).await()
+    suspend fun updateJob(job: Job, updatedAt: Long = System.currentTimeMillis()) {
+        val map = job.toMap().toMutableMap()
+        map["updatedAt"] = updatedAt
+        userRef.child("jobs").child(job.id).updateChildren(map).await()
     }
 
     /** Supprime un contrat et toutes ses sous-données (journées, templates, etc.). */
-    suspend fun deleteJob(jobId: String) {
+    suspend fun deleteJob(jobId: String, timestamp: Long = System.currentTimeMillis()) {
         userRef.child("jobs").child(jobId).removeValue().await()
+        userRef.child("deleted").child(jobId).setValue(timestamp).await()
     }
 
-    suspend fun updateJobFields(jobId: String, fields: Map<String, Any?>) {
-        userRef.child("jobs").child(jobId).updateChildren(fields).await()
+    suspend fun updateJobFields(jobId: String, fields: Map<String, Any?>, updatedAt: Long = System.currentTimeMillis()) {
+        val map = fields.toMutableMap()
+        map["updatedAt"] = updatedAt
+        userRef.child("jobs").child(jobId).updateChildren(map).await()
     }
 
     /** Force une lecture pour réconcilier (Realtime DB est déjà live via les listeners). */
@@ -231,46 +239,66 @@ class FirestoreService {
         }
     }
 
-    suspend fun setMainJob(jobId: String) {
+    suspend fun setMainJob(jobId: String, updatedAt: Long = System.currentTimeMillis()) {
         val snapshot = userRef.child("jobs").get().await()
         val updates = mutableMapOf<String, Any?>()
         for (child in snapshot.children) {
-            child.key?.let { id -> updates["$id/isMainJob"] = (id == jobId) }
+            child.key?.let { id ->
+                updates["$id/isMainJob"] = (id == jobId)
+                updates["$id/updatedAt"] = updatedAt
+            }
         }
         userRef.child("jobs").updateChildren(updates).await()
     }
 
-    suspend fun addDayEntry(jobId: String, entry: DayEntry) {
+    suspend fun addDayEntry(jobId: String, entry: DayEntry, updatedAt: Long = System.currentTimeMillis()) {
+        val map = entry.toMap().toMutableMap()
+        map["updatedAt"] = updatedAt
         userRef.child("jobs").child(jobId).child("days")
-            .child(entry.id).setValue(entry.toMap()).await()
+            .child(entry.id).setValue(map).await()
     }
 
-    suspend fun addDayEntries(jobId: String, entries: List<DayEntry>) {
+    suspend fun addDayEntries(jobId: String, entries: List<DayEntry>, updatedAt: Long = System.currentTimeMillis()) {
         val updates = mutableMapOf<String, Any?>()
         entries.forEach { entry ->
-            updates[entry.id] = entry.toMap()
+            val map = entry.toMap().toMutableMap()
+            map["updatedAt"] = updatedAt
+            updates[entry.id] = map
         }
         userRef.child("jobs").child(jobId).child("days").updateChildren(updates).await()
     }
 
-    suspend fun deleteDayEntry(jobId: String, entryId: String) {
+    suspend fun deleteDayEntry(jobId: String, entryId: String, timestamp: Long = System.currentTimeMillis()) {
         userRef.child("jobs").child(jobId).child("days")
             .child(entryId).removeValue().await()
+        userRef.child("deleted").child(entryId).setValue(timestamp).await()
     }
 
     /** Supprime toutes les journées d'un contrat. */
     suspend fun deleteAllEntries(jobId: String) {
+        val snapshot = userRef.child("jobs").child(jobId).child("days").get().await()
+        val now = System.currentTimeMillis()
+        val updates = mutableMapOf<String, Any?>()
+        for (child in snapshot.children) {
+            child.key?.let { id -> updates["deleted/$id"] = now }
+        }
+        if (updates.isNotEmpty()) {
+            userRef.updateChildren(updates).await()
+        }
         userRef.child("jobs").child(jobId).child("days").removeValue().await()
     }
 
-    suspend fun addTemplate(jobId: String, template: DayTemplate) {
+    suspend fun addTemplate(jobId: String, template: DayTemplate, updatedAt: Long = System.currentTimeMillis()) {
+        val map = template.toMap().toMutableMap()
+        map["updatedAt"] = updatedAt
         userRef.child("jobs").child(jobId).child("templates")
-            .child(template.id).setValue(template.toMap()).await()
+            .child(template.id).setValue(map).await()
     }
 
-    suspend fun deleteTemplate(jobId: String, templateId: String) {
+    suspend fun deleteTemplate(jobId: String, templateId: String, timestamp: Long = System.currentTimeMillis()) {
         userRef.child("jobs").child(jobId).child("templates")
             .child(templateId).removeValue().await()
+        userRef.child("deleted").child(templateId).setValue(timestamp).await()
     }
 
     // ─── Règles de saisie automatique ─────────────────────────────────────────
@@ -287,14 +315,17 @@ class FirestoreService {
         awaitClose { ref.removeEventListener(listener) }
     }
 
-    suspend fun addAutoRule(jobId: String, rule: AutoEntryRule) {
+    suspend fun addAutoRule(jobId: String, rule: AutoEntryRule, updatedAt: Long = System.currentTimeMillis()) {
+        val map = rule.toMap().toMutableMap()
+        map["updatedAt"] = updatedAt
         userRef.child("jobs").child(jobId).child("autoRules")
-            .child(rule.id).setValue(rule.toMap()).await()
+            .child(rule.id).setValue(map).await()
     }
 
-    suspend fun deleteAutoRule(jobId: String, ruleId: String) {
+    suspend fun deleteAutoRule(jobId: String, ruleId: String, timestamp: Long = System.currentTimeMillis()) {
         userRef.child("jobs").child(jobId).child("autoRules")
             .child(ruleId).removeValue().await()
+        userRef.child("deleted").child(ruleId).setValue(timestamp).await()
     }
 
     // ─── Paramètres de l'application ─────────────────────────────────────────
@@ -311,12 +342,20 @@ class FirestoreService {
         awaitClose { ref.removeEventListener(listener) }
     }
 
-    suspend fun updateAppTheme(theme: String) {
-        userRef.child("settings").child("appTheme").setValue(theme).await()
+    suspend fun updateAppTheme(theme: String, updatedAt: Long = System.currentTimeMillis()) {
+        val updates = mapOf(
+            "appTheme" to theme,
+            "appThemeUpdatedAt" to updatedAt
+        )
+        userRef.child("settings").updateChildren(updates).await()
     }
 
-    suspend fun saveGeminiApiKey(key: String) {
-        userRef.child("settings").child("geminiApiKey").setValue(key).await()
+    suspend fun saveGeminiApiKey(key: String, updatedAt: Long = System.currentTimeMillis()) {
+        val updates = mapOf(
+            "geminiApiKey" to key,
+            "geminiApiKeyUpdatedAt" to updatedAt
+        )
+        userRef.child("settings").updateChildren(updates).await()
     }
 
     suspend fun getGeminiApiKey(): String? {
@@ -341,14 +380,17 @@ class FirestoreService {
         awaitClose { ref.removeEventListener(listener) }
     }
 
-    suspend fun addPayslip(jobId: String, payslip: Payslip) {
+    suspend fun addPayslip(jobId: String, payslip: Payslip, updatedAt: Long = System.currentTimeMillis()) {
+        val map = payslip.toMap().toMutableMap()
+        map["updatedAt"] = updatedAt
         userRef.child("jobs").child(jobId).child("payslips")
-            .child(payslip.id).setValue(payslip.toMap()).await()
+            .child(payslip.id).setValue(map).await()
     }
 
-    suspend fun deletePayslip(jobId: String, payslipId: String) {
+    suspend fun deletePayslip(jobId: String, payslipId: String, timestamp: Long = System.currentTimeMillis()) {
         userRef.child("jobs").child(jobId).child("payslips")
             .child(payslipId).removeValue().await()
+        userRef.child("deleted").child(payslipId).setValue(timestamp).await()
     }
 }
 

@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.Flow
  * (Firebase Realtime Database). Utilisée pour les comptes authentifiés.
  */
 class RemoteDataService(
-    private val fs: FirestoreService = FirestoreService()
+    val fs: FirestoreService = FirestoreService()
 ) : DataService {
     override fun setUserId(newUserId: String) = fs.setUserId(newUserId)
     override suspend fun transferOldDataIfNeeded(newUserId: String) = fs.transferOldDataIfNeeded(newUserId)

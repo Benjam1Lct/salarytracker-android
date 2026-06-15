@@ -537,6 +537,10 @@ fun SalaryTrackerApp(
 
             composable("dashboard") {
                 currentJob?.let { job ->
+                    val activeSessionStartTime = viewModel.activeSessionStartTime.collectAsState().value
+                    val activeSessionPauseStartTime = viewModel.activeSessionPauseStartTime.collectAsState().value
+                    val activeSessionTotalPauseMs = viewModel.activeSessionTotalPauseMs.collectAsState().value
+
                     DashboardScreen(
                         job = job,
                         entries = entries,
@@ -558,7 +562,15 @@ fun SalaryTrackerApp(
                         isRefreshing = isRefreshing,
                         onRefresh = { viewModel.refresh() },
                         importStatus = importStatus,
-                        onDismissImport = { viewModel.clearImportStatus() }
+                        onDismissImport = { viewModel.clearImportStatus() },
+                        activeSessionStartTime = activeSessionStartTime,
+                        activeSessionPauseStartTime = activeSessionPauseStartTime,
+                        activeSessionTotalPauseMs = activeSessionTotalPauseMs,
+                        onStartWorkday = { viewModel.startWorkday() },
+                        onStartPause = { viewModel.startPause() },
+                        onEndPause = { viewModel.endPause() },
+                        onEndWorkday = { viewModel.endWorkday() },
+                        onCancelWorkday = { viewModel.cancelWorkday() }
                     )
                 }
             }

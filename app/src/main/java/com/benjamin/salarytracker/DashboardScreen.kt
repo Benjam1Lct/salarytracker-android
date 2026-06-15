@@ -1,5 +1,6 @@
 package com.benjamin.salarytracker
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -51,7 +52,15 @@ fun DashboardScreen(
     isRefreshing: Boolean = false,
     onRefresh: () -> Unit = {},
     importStatus: ImportStatus = ImportStatus.Idle,
-    onDismissImport: () -> Unit = {}
+    onDismissImport: () -> Unit = {},
+    activeSessionStartTime: Long = 0L,
+    activeSessionPauseStartTime: Long = 0L,
+    activeSessionTotalPauseMs: Long = 0L,
+    onStartWorkday: () -> Unit = {},
+    onStartPause: () -> Unit = {},
+    onEndPause: () -> Unit = {},
+    onEndWorkday: () -> Unit = {},
+    onCancelWorkday: () -> Unit = {}
 ) {
     val stats = SalaryCalculator.calculateMonthStats(job, entries, YearMonth.now())
     val contrat = SalaryCalculator.calculateContractSummary(job, entries)
@@ -83,6 +92,25 @@ fun DashboardScreen(
             // Carte contrat — tout en haut, fond sombre
             if (job.endDate != null) {
                 item { Appear(0) { ContractCard(job.startDate, job.endDate, contrat, onAddEntry) } }
+            }
+
+            // Enregistrement rapide de journée et de pause
+            item {
+                val hasEntryToday = remember(entries) { entries.any { it.date == LocalDate.now() } }
+                Appear(40) {
+                    SessionTrackerRow(
+                        job = job,
+                        activeSessionStartTime = activeSessionStartTime,
+                        activeSessionPauseStartTime = activeSessionPauseStartTime,
+                        activeSessionTotalPauseMs = activeSessionTotalPauseMs,
+                        onStartWorkday = onStartWorkday,
+                        onStartPause = onStartPause,
+                        onEndPause = onEndPause,
+                        onEndWorkday = onEndWorkday,
+                        onCancelWorkday = onCancelWorkday,
+                        hasEntryToday = hasEntryToday
+                    )
+                }
             }
 
             // Aperçu objectif — carte blanche avec jauge en arc
@@ -587,6 +615,477 @@ private fun ImportStatusCard(
             if (status is ImportStatus.Success || status is ImportStatus.Error) {
                 androidx.compose.material3.IconButton(onClick = onDismiss, modifier = androidx.compose.ui.Modifier.size(24.dp)) {
                     androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Default.Close, "Fermer", tint = fg, modifier = androidx.compose.ui.Modifier.size(16.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SessionTrackerRow(
+    job: Job,
+    activeSessionStartTime: Long,
+    activeSessionPauseStartTime: Long,
+    activeSessionTotalPauseMs: Long,
+    onStartWorkday: () -> Unit,
+    onStartPause: () -> Unit,
+    onEndPause: () -> Unit,
+    onEndWorkday: () -> Unit,
+    onCancelWorkday: () -> Unit,
+    hasEntryToday: Boolean
+) {
+    val isWorkdayRunning = activeSessionStartTime > 0L
+    val isBreakRunning = activeSessionPauseStartTime > 0L
+
+    var currentTime by remember { mutableStateOf(System.currentTimeMillis()) }
+    var confirmCancel by remember { mutableStateOf(false) }
+    var confirmEnd by remember { mutableStateOf(false) }
+
+    LaunchedEffect(isWorkdayRunning) {
+        if (!isWorkdayRunning) {
+            confirmCancel = false
+            confirmEnd = false
+        }
+    }
+
+    LaunchedEffect(isWorkdayRunning, isBreakRunning) {
+        if (isWorkdayRunning || isBreakRunning) {
+            while (true) {
+                currentTime = System.currentTimeMillis()
+                kotlinx.coroutines.delay(1000)
+            }
+        }
+    }
+
+    val totalPauseMs = if (isBreakRunning) {
+        activeSessionTotalPauseMs + (currentTime - activeSessionPauseStartTime)
+    } else {
+        activeSessionTotalPauseMs
+    }
+
+    val workMs = if (isWorkdayRunning) {
+        if (isBreakRunning) {
+            activeSessionPauseStartTime - activeSessionStartTime - activeSessionTotalPauseMs
+        } else {
+            currentTime - activeSessionStartTime - activeSessionTotalPauseMs
+        }
+    } else {
+        0L
+    }.coerceAtLeast(0L)
+
+    fun formatDuration(ms: Long): String {
+        val totalSecs = ms / 1000
+        val hours = totalSecs / 3600
+        val minutes = (totalSecs % 3600) / 60
+        val secs = totalSecs % 60
+        return String.format(Locale.getDefault(), "%02dh %02dm %02ds", hours, minutes, secs)
+    }
+
+    val workText = formatDuration(workMs)
+    val earningsBrut = (workMs / 3600000.0) * job.hourlyRateBrut
+    val earningsNet = earningsBrut * 0.78
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        // Card 1: Workday
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .height(200.dp)
+                .clip(RoundedCornerShape(22.dp))
+                .background(WidgetGray)
+                .border(
+                    width = 1.dp,
+                    color = if (isWorkdayRunning) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else Color.Transparent,
+                    shape = RoundedCornerShape(22.dp)
+                )
+                .padding(16.dp)
+        ) {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
+                // Header Row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "MA JOURNÉE",
+                        color = OnWidgetMut,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp
+                    )
+                    // Active indicator dot
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .clip(RoundedCornerShape(50))
+                            .background(
+                                if (isWorkdayRunning) Color(0xFF4CAF50)
+                                else if (hasEntryToday) Color(0xFF4CAF50).copy(alpha = 0.5f)
+                                else OnWidgetMut.copy(alpha = 0.4f)
+                            )
+                    )
+                }
+
+                if (!isWorkdayRunning) {
+                    if (hasEntryToday) {
+                        // Recorded state (unclickable)
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = Color(0xFF4CAF50),
+                                modifier = Modifier.size(44.dp)
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                text = "Enregistrée",
+                                color = OnWidget,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Aujourd'hui",
+                                color = OnWidgetMut,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    } else {
+                        // Start Workday Button
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f)
+                                .clickable { onStartWorkday() },
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.PlayCircle,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(44.dp)
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                text = "Débuter journée",
+                                color = OnWidget,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                } else {
+                    // Running state display
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                            .padding(vertical = 4.dp),
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = workText,
+                            color = OnWidget,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = "+${euro(earningsBrut)} brut",
+                            color = OnWidgetMut,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            text = "+${euro(earningsNet)} net",
+                            color = Color(0xFF4CAF50),
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    // Action buttons with double confirmation
+                    if (!confirmCancel && !confirmEnd) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().height(36.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            // Cancel button
+                            OutlinedButton(
+                                onClick = { confirmCancel = true },
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = OnWidgetMut
+                                ),
+                                border = BorderStroke(1.dp, OnWidgetMut.copy(alpha = 0.3f)),
+                                modifier = Modifier.weight(0.35f).fillMaxHeight(),
+                                contentPadding = PaddingValues(0.dp),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Icon(Icons.Default.Close, null, modifier = Modifier.size(16.dp))
+                            }
+
+                            // Terminer button
+                            Button(
+                                onClick = { confirmEnd = true },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.error,
+                                    contentColor = Color.White
+                                ),
+                                modifier = Modifier.weight(0.65f).fillMaxHeight(),
+                                contentPadding = PaddingValues(0.dp),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Stop, null, modifier = Modifier.size(14.dp), tint = Color.White)
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("Terminer", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    } else if (confirmCancel) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().height(36.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            // Confirm cancel
+                            Button(
+                                onClick = {
+                                    confirmCancel = false
+                                    onCancelWorkday()
+                                },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.error,
+                                    contentColor = Color.White
+                                ),
+                                modifier = Modifier.weight(1f).fillMaxHeight(),
+                                contentPadding = PaddingValues(0.dp),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text("Sûr ?", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+
+                            // Keep workday
+                            Button(
+                                onClick = { confirmCancel = false },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = OnWidgetMut.copy(alpha = 0.15f),
+                                    contentColor = OnWidget
+                                ),
+                                modifier = Modifier.weight(1f).fillMaxHeight(),
+                                contentPadding = PaddingValues(0.dp),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text("Non", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    } else if (confirmEnd) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().height(36.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            // Cancel ending / Back
+                            Button(
+                                onClick = { confirmEnd = false },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = OnWidgetMut.copy(alpha = 0.15f),
+                                    contentColor = OnWidget
+                                ),
+                                modifier = Modifier.weight(1f).fillMaxHeight(),
+                                contentPadding = PaddingValues(0.dp),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text("Non", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+
+                            // Confirm ending / Save
+                            Button(
+                                onClick = {
+                                    confirmEnd = false
+                                    onEndWorkday()
+                                },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFF4CAF50),
+                                    contentColor = Color.White
+                                ),
+                                modifier = Modifier.weight(1f).fillMaxHeight(),
+                                contentPadding = PaddingValues(0.dp),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text("Sûr ?", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Card 2: Break
+        val cardAlpha = if (isWorkdayRunning) 1f else if (hasEntryToday) 0.3f else 0.5f
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .height(200.dp)
+                .clip(RoundedCornerShape(22.dp))
+                .background(WidgetGray)
+                .border(
+                    width = 1.dp,
+                    color = if (isBreakRunning) Color(0xFFFF9800).copy(alpha = 0.6f) else Color.Transparent,
+                    shape = RoundedCornerShape(22.dp)
+                )
+                .clickable(enabled = isWorkdayRunning) {
+                    if (isBreakRunning) onEndPause() else onStartPause()
+                }
+                .padding(16.dp)
+        ) {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
+                // Header Row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "PAUSE",
+                        color = OnWidgetMut.copy(alpha = cardAlpha),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp
+                    )
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .clip(RoundedCornerShape(50))
+                            .background(
+                                if (isBreakRunning) Color(0xFFFF9800)
+                                else OnWidgetMut.copy(alpha = 0.4f * cardAlpha)
+                            )
+                    )
+                }
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    if (!isWorkdayRunning) {
+                        Icon(
+                            imageVector = Icons.Default.LocalCafe,
+                            contentDescription = null,
+                            tint = OnWidgetMut.copy(alpha = if (hasEntryToday) 0.15f else 0.3f),
+                            modifier = Modifier.size(44.dp)
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            text = "Pause",
+                            color = OnWidgetMut.copy(alpha = if (hasEntryToday) 0.25f else 0.5f),
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    } else if (isBreakRunning) {
+                        val activePauseMs = currentTime - activeSessionPauseStartTime
+                        val totalPauseMin = totalPauseMs / 60000
+
+                        Text(
+                            text = formatDuration(activePauseMs),
+                            color = OnWidget,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = "Pause active...",
+                            color = Color(0xFFFF9800),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            text = "Cumulé : ${totalPauseMin}m",
+                            color = OnWidgetMut,
+                            fontSize = 11.sp
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.LocalCafe,
+                            contentDescription = null,
+                            tint = Color(0xFFFF9800),
+                            modifier = Modifier.size(44.dp)
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            text = "Débuter pause",
+                            color = OnWidget,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        if (totalPauseMs > 0) {
+                            Text(
+                                text = "Déjà pris : ${totalPauseMs / 60000}m",
+                                color = OnWidgetMut,
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+                }
+
+                if (isWorkdayRunning && isBreakRunning) {
+                    Button(
+                        onClick = onEndPause,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFFF9800),
+                            contentColor = Color.White
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(36.dp),
+                        contentPadding = PaddingValues(0.dp),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Stop, null, modifier = Modifier.size(14.dp), tint = Color.White)
+                            Spacer(Modifier.width(4.dp))
+                            Text("Reprendre", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                } else if (isWorkdayRunning) {
+                    Button(
+                        onClick = onStartPause,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = Color.White
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(36.dp),
+                        contentPadding = PaddingValues(0.dp),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.LocalCafe, null, modifier = Modifier.size(14.dp), tint = Color.White)
+                            Spacer(Modifier.width(4.dp))
+                            Text("Faire une pause", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
                 }
             }
         }

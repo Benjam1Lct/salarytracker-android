@@ -53,6 +53,18 @@ class LocalDataService(private val context: Context) : DataService {
         } catch (_: Exception) {
             LocalDb()
         }
+        var modified = false
+        db.entries.forEach { (_, list) ->
+            for (i in list.indices) {
+                if (list[i].id.isEmpty()) {
+                    list[i] = list[i].copy(id = java.util.UUID.randomUUID().toString())
+                    modified = true
+                }
+            }
+        }
+        if (modified) {
+            persist()
+        }
         emitAll()
     }
 

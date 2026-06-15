@@ -23,6 +23,7 @@ class SalaryViewModel(
 
     // Stockage local sur l'appareil (comptes locaux).
     private val localService = LocalDataService(SalaryApp.instance)
+    private val syncService = SyncDataService(localService, remoteService as RemoteDataService)
 
     // Blocage de version : true si l'app est trop ancienne (config Firebase config/minVersionCode).
     private val _updateRequired = MutableStateFlow(false)
@@ -33,7 +34,7 @@ class SalaryViewModel(
 
     /** Backend actif selon le type de session : local (sur l'appareil) ou distant (Firebase). */
     private val data: DataService
-        get() = if (_userSession.value?.isLocal == true) localService else remoteService
+        get() = if (_userSession.value?.isLocal == true) localService else syncService
 
     val geminiApiKey = MutableStateFlow<String>("")
 
@@ -42,6 +43,10 @@ class SalaryViewModel(
 
     /** Verifier verification ID pour Phone Auth Firebase */
     var phoneVerificationId: String? = null
+
+    val activeSessionStartTime = MutableStateFlow<Long>(0L)
+    val activeSessionPauseStartTime = MutableStateFlow<Long>(0L)
+    val activeSessionTotalPauseMs = MutableStateFlow<Long>(0L)
 
     private val prefs = SalaryApp.instance.getSharedPreferences("salary_tracker_prefs", android.content.Context.MODE_PRIVATE)
 
@@ -117,6 +122,10 @@ class SalaryViewModel(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "purple")
 
     init {
+        activeSessionStartTime.value = prefs.getLong("active_session_start_time", 0L)
+        activeSessionPauseStartTime.value = prefs.getLong("active_session_pause_start_time", 0L)
+        activeSessionTotalPauseMs.value = prefs.getLong("active_session_total_pause_ms", 0L)
+
         dailyReminderEnabled.value = prefs.getBoolean("daily_reminder_enabled", false)
         dailyReminderHour.value = prefs.getInt("daily_reminder_hour", 18)
         dailyReminderMinute.value = prefs.getInt("daily_reminder_minute", 0)
@@ -850,6 +859,89 @@ class SalaryViewModel(
             .putString("user_email", session.email)
             .putString("user_photo", session.photoUrl)
             .putBoolean("user_is_local", session.isLocal)
+            .apply()
+    }
+
+    fun startWorkday() {
+        val now = System.currentTimeMillis()
+        activeSessionStartTime.value = now
+        activeSessionPauseStartTime.value = 0L
+        activeSessionTotalPauseMs.value = 0L
+        prefs.edit()
+            .putLong("active_session_start_time", now)
+            .putLong("active_session_pause_start_time", 0L)
+            .putLong("active_session_total_pause_ms", 0L)
+            .apply()
+    }
+
+    fun startPause() {
+        val now = System.currentTimeMillis()
+        activeSessionPauseStartTime.value = now
+        prefs.edit()
+            .putLong("active_session_pause_start_time", now)
+            .apply()
+    }
+
+    fun endPause() {
+        val start = activeSessionPauseStartTime.value
+        if (start > 0L) {
+            val elapsed = System.currentTimeMillis() - start
+            val total = activeSessionTotalPauseMs.value + elapsed
+            activeSessionTotalPauseMs.value = total
+            activeSessionPauseStartTime.value = 0L
+            prefs.edit()
+                .putLong("active_session_pause_start_time", 0L)
+                .putLong("active_session_total_pause_ms", total)
+                .apply()
+        }
+    }
+
+    fun endWorkday() {
+        val start = activeSessionStartTime.value
+        if (start > 0L) {
+            val end = System.currentTimeMillis()
+            var totalPause = activeSessionTotalPauseMs.value
+            val pauseStart = activeSessionPauseStartTime.value
+            if (pauseStart > 0L) {
+                totalPause += end - pauseStart
+            }
+
+            val zoneId = java.time.ZoneId.systemDefault()
+            val startDateTime = java.time.ZonedDateTime.ofInstant(java.time.Instant.ofEpochMilli(start), zoneId)
+            val endDateTime = java.time.ZonedDateTime.ofInstant(java.time.Instant.ofEpochMilli(end), zoneId)
+
+            val pauseMinutes = totalPause / 60000
+
+            val entry = DayEntry(
+                id = java.util.UUID.randomUUID().toString(),
+                jobId = currentJobId.value ?: "",
+                date = startDateTime.toLocalDate(),
+                startTime = startDateTime.toLocalTime(),
+                endTime = endDateTime.toLocalTime(),
+                pauseMinutes = pauseMinutes
+            )
+
+            addDayEntry(entry)
+
+            activeSessionStartTime.value = 0L
+            activeSessionPauseStartTime.value = 0L
+            activeSessionTotalPauseMs.value = 0L
+            prefs.edit()
+                .putLong("active_session_start_time", 0L)
+                .putLong("active_session_pause_start_time", 0L)
+                .putLong("active_session_total_pause_ms", 0L)
+                .apply()
+        }
+    }
+
+    fun cancelWorkday() {
+        activeSessionStartTime.value = 0L
+        activeSessionPauseStartTime.value = 0L
+        activeSessionTotalPauseMs.value = 0L
+        prefs.edit()
+            .putLong("active_session_start_time", 0L)
+            .putLong("active_session_pause_start_time", 0L)
+            .putLong("active_session_total_pause_ms", 0L)
             .apply()
     }
 
