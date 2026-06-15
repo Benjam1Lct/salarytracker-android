@@ -320,6 +320,44 @@ class SalaryViewModel(
         viewModelScope.launch { data.addTemplate(jobId, template) }
     }
 
+    fun importTemplatesFromEntries(onResult: (Int) -> Unit) {
+        val jobId = currentJobId.value ?: return
+        val currentEntries = entries.value
+        val currentTemplates = templates.value
+
+        val uniqueConfigs = currentEntries
+            .filter { !it.isLeave }
+            .map { Triple(it.startTime, it.endTime, it.pauseMinutes) }
+            .distinct()
+
+        viewModelScope.launch {
+            var count = 0
+            for ((start, end, pause) in uniqueConfigs) {
+                val exists = currentTemplates.any { t ->
+                    t.startTime == start &&
+                    t.endTime == end &&
+                    t.pauseBlocks.sumOf { it.durationMinutes } == pause
+                }
+                if (!exists) {
+                    val name = if (pause > 0) {
+                        "${start} – ${end} (${pause}m)"
+                    } else {
+                        "${start} – ${end}"
+                    }
+                    val template = DayTemplate(
+                        name = name,
+                        startTime = start,
+                        endTime = end,
+                        pauseBlocks = if (pause > 0) listOf(PauseBlock(pause)) else emptyList()
+                    )
+                    data.addTemplate(jobId, template)
+                    count++
+                }
+            }
+            onResult(count)
+        }
+    }
+
     // ─── Saisie automatique ──────────────────────────────────────────────────
 
     fun addAutoRule(rule: AutoEntryRule) {

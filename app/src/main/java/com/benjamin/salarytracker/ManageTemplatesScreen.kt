@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material3.*
 import android.widget.Toast
 import androidx.compose.runtime.*
@@ -30,8 +31,10 @@ fun ManageTemplatesScreen(
     existingTemplates: List<DayTemplate>,
     onAddTemplate: (DayTemplate) -> Unit,
     onDeleteTemplate: (String) -> Unit,
+    onRetrieveFromHistory: ((Int) -> Unit) -> Unit,
     onBack: () -> Unit
 ) {
+    val context = LocalContext.current
     var editingTemplate by remember { mutableStateOf<DayTemplate?>(null) }
     var isAddingNew by remember { mutableStateOf(false) }
 
@@ -63,6 +66,18 @@ fun ManageTemplatesScreen(
                         }
                     }) {
                         Icon(Icons.Default.Close, contentDescription = "Fermer")
+                    }
+                },
+                actions = {
+                    if (!isAddingNew && editingTemplate == null) {
+                        IconButton(onClick = {
+                            onRetrieveFromHistory { count ->
+                                val msg = if (count > 0) "$count templates récupérés !" else "Aucun nouveau template trouvé dans l'historique."
+                                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                            }
+                        }) {
+                            Icon(Icons.Default.History, contentDescription = "Récupérer depuis l'historique")
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -119,12 +134,28 @@ fun ManageTemplatesScreen(
                                 .padding(40.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                "Aucun template enregistré.\nAppuyez sur + pour en créer un.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                            )
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    "Aucun template enregistré.\nAppuyez sur + pour en créer un.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                )
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Button(
+                                    onClick = {
+                                        onRetrieveFromHistory { count ->
+                                            val msg = if (count > 0) "$count templates récupérés !" else "Aucun nouveau template trouvé dans l'historique."
+                                            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Icon(Icons.Default.History, contentDescription = null)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Récupérer depuis l'historique")
+                                }
+                            }
                         }
                     }
                 }

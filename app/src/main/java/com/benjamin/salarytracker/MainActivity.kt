@@ -853,6 +853,7 @@ fun SalaryTrackerApp(
                     existingTemplates = templates,
                     onAddTemplate = { viewModel.addTemplate(it) },
                     onDeleteTemplate = { viewModel.deleteTemplate(it) },
+                    onRetrieveFromHistory = { onResult -> viewModel.importTemplatesFromEntries(onResult) },
                     onBack = { navController.popBackStack() }
                 )
             }

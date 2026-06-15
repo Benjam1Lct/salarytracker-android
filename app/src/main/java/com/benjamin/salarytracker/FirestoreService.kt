@@ -211,7 +211,7 @@ class FirestoreService {
     }
 
     suspend fun updateJob(job: Job) {
-        userRef.child("jobs").child(job.id).setValue(job.toMap()).await()
+        userRef.child("jobs").child(job.id).updateChildren(job.toMap()).await()
     }
 
     /** Supprime un contrat et toutes ses sous-données (journées, templates, etc.). */
