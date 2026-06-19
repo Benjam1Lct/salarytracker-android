@@ -73,7 +73,7 @@ fun JobSelectionScreen(
 ) {
     // Renvoie les contrats rattachés à une entreprise (par id, ou par nom pour les contrats hérités).
     fun jobsOfCompany(company: Company, source: List<Job>) = source.filter {
-        it.companyId == company.id || (it.companyId == null && it.companyName.isNotBlank() && it.companyName == company.name)
+        it.companyId == company.id || (it.companyName.isNotBlank() && it.companyName.trim().equals(company.name.trim(), ignoreCase = true))
     }
     Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).statusBarsPadding()) {
         Column(
@@ -110,8 +110,9 @@ fun JobSelectionScreen(
                     Text("Crée une entreprise pour commencer.", color = InkMuted, fontSize = 14.sp, textAlign = TextAlign.Center)
                 }
             } else {
-                // Une carte par entreprise (même sans contrat)
-                companies.forEachIndexed { index, company ->
+                // Une carte par entreprise (même sans contrat), dédupliquée par nom
+                val uniqueCompanies = companies.distinctBy { it.name.trim().lowercase() }
+                uniqueCompanies.forEachIndexed { index, company ->
                     Appear(delayMillis = 40 * index) {
                         CompanyGroup(
                             company = company,
@@ -129,7 +130,7 @@ fun JobSelectionScreen(
                 }
 
                 // Contrats actifs sans entreprise rattachée (cas résiduel)
-                val orphanActive = activeJobs.filter { j -> companies.none { c -> j in jobsOfCompany(c, activeJobs) } }
+                val orphanActive = activeJobs.filter { j -> uniqueCompanies.none { c -> j in jobsOfCompany(c, activeJobs) } }
                 orphanActive.forEach { job ->
                     JobRow(
                         job = job,
@@ -379,9 +380,10 @@ private fun JobRow(
             }
             Spacer(Modifier.width(10.dp))
         }
+        val totalHours = job.weeklyContractHours + job.includedOvertimeHours
         Column(Modifier.weight(1f)) {
             Text(
-                if (isCompact) "${fmtMoneyNum(job.hourlyRateBrut)} €/h · ${fmtMoneyNum(job.weeklyContractHours)} h/sem"
+                if (isCompact) "${fmtMoneyNum(job.hourlyRateBrut)} €/h · ${fmtMoneyNum(totalHours)} h/sem"
                 else job.name,
                 color = if (isCompact) InkMuted else Ink,
                 fontSize = if (isCompact) 13.sp else 15.sp,
@@ -390,7 +392,7 @@ private fun JobRow(
             )
             if (!isCompact) {
                 Text(
-                    "${job.contractType.label()} · ${fmtMoneyNum(job.hourlyRateBrut)} €/h · ${fmtMoneyNum(job.weeklyContractHours)} h/sem",
+                    "${job.contractType.label()} · ${fmtMoneyNum(job.hourlyRateBrut)} €/h · ${fmtMoneyNum(totalHours)} h/sem",
                     color = InkMuted, fontSize = 12.sp
                 )
             }

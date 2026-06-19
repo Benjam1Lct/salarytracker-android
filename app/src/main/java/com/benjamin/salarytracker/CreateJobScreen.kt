@@ -58,6 +58,8 @@ fun CreateJobScreen(
     var companyNameInput by remember { mutableStateOf(existingJob?.companyName ?: "") }
     var rate by remember { mutableStateOf(existingJob?.hourlyRateBrut?.toString() ?: "") }
     var hours by remember { mutableStateOf(existingJob?.weeklyContractHours?.toString() ?: "35") }
+    var includedOvertimeHours by remember { mutableStateOf(existingJob?.includedOvertimeHours?.toString() ?: "0") }
+    var includedOvertimeRatePercent by remember { mutableStateOf(existingJob?.includedOvertimeRatePercent ?: 25.0) }
     var quota by remember { mutableStateOf(existingJob?.annualOvertimeQuota?.toString() ?: "220") }
     var overtimeMode by remember { mutableStateOf(existingJob?.overtimeMode ?: OvertimeMode.PAYEE) }
     var startDate by remember { mutableStateOf(existingJob?.startDate) }
@@ -105,6 +107,8 @@ fun CreateJobScreen(
                     contractType = job.contractType
                     rate = job.hourlyRateBrut.toString()
                     hours = job.weeklyContractHours.toString()
+                    includedOvertimeHours = job.includedOvertimeHours.toString()
+                    includedOvertimeRatePercent = job.includedOvertimeRatePercent
                     quota = job.annualOvertimeQuota.toString()
                     overtimeMode = job.overtimeMode
                     job.startDate?.let { startDate = it }
@@ -422,12 +426,48 @@ fun CreateJobScreen(
             Spacer(Modifier.height(12.dp))
 
             OutlinedTextField(
+                value = includedOvertimeHours, onValueChange = { includedOvertimeHours = it },
+                label = { Text("Heures sup. incluses par semaine") },
+                supportingText = { Text("Indiquez la différence (ex : 4 pour un contrat de 39h payé 35h + 4h sup)") },
+                modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+            )
+            Spacer(Modifier.height(12.dp))
+
+            if ((includedOvertimeHours.toDoubleOrNull() ?: 0.0) > 0.0) {
+                Text("Taux de majoration des heures incluses", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(6.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    listOf(0.0 to "Taux normal (+0%)", 25.0 to "Majoré (+25%)").forEach { (valeur, label) ->
+                        FilterChip(
+                            selected = includedOvertimeRatePercent == valeur,
+                            onClick = { includedOvertimeRatePercent = valeur },
+                            label = { Text(label, style = MaterialTheme.typography.labelMedium) },
+                            shape = RoundedCornerShape(10.dp)
+                        )
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+            }
+
+            OutlinedTextField(
                 value = quota, onValueChange = { quota = it },
                 label = { Text("Contingent annuel (h)") },
                 modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
             )
             Spacer(Modifier.height(12.dp))
+
+            val hVal = hours.toDoubleOrNull() ?: 35.0
+            val ioVal = includedOvertimeHours.toDoubleOrNull() ?: 0.0
+            val baseThreshold = hVal + ioVal
+            val threshold = existingJob?.livretThreshold ?: 43.0
+
+            val fmtBaseThreshold = if (baseThreshold % 1.0 == 0.0) baseThreshold.toInt().toString() else baseThreshold.toString()
+            val fmtThreshold = if (threshold % 1.0 == 0.0) threshold.toInt().toString() else threshold.toString()
 
             Card(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -437,12 +477,12 @@ fun CreateJobScreen(
                     Triple(
                         OvertimeMode.PAYEE,
                         "Toutes payées (majorées)",
-                        "Rémunération directe de toutes vos heures sup avec majorations légales (+25% jusqu'à 43h/sem, puis +50% au-delà)."
+                        "Rémunération directe de toutes vos heures sup avec majorations légales (+25% de ${fmtBaseThreshold}h à ${fmtThreshold}h/sem, puis +50% au-delà)."
                     ),
                     Triple(
                         OvertimeMode.CAPITALISEE,
                         "Livret d'heures (Modulation)",
-                        "Les heures de 35h à 43h sont créditées sur un livret d'heures pour être modulées/récupérées. Seules les heures au-delà de 43h sont payées."
+                        "Les heures de ${fmtBaseThreshold}h à ${fmtThreshold}h sont créditées sur un livret d'heures pour être modulées/récupérées. Seules les heures au-delà de ${fmtThreshold}h sont payées."
                     ),
                     Triple(
                         OvertimeMode.RECUPERATION,
@@ -452,7 +492,7 @@ fun CreateJobScreen(
                     Triple(
                         OvertimeMode.CET,
                         "Compte Épargne-Temps (CET)",
-                        "Vos heures supplémentaires (+25% de majoration) sont placées sur votre CET pour être payées ou prises en congés plus tard."
+                        "Vos heures supplémentaires (+25% de majoration de ${fmtBaseThreshold}h à ${fmtThreshold}h/sem) sont placées sur votre CET pour être payées ou prises en congés plus tard."
                     ),
                     Triple(
                         OvertimeMode.MIXTE,
@@ -513,6 +553,8 @@ fun CreateJobScreen(
             Spacer(Modifier.height(32.dp))
             Button(
                 onClick = {
+                    val hVal = hours.toDoubleOrNull() ?: 35.0
+                    val ioVal = includedOvertimeHours.toDoubleOrNull() ?: 0.0
                     val job = Job(
                         id = existingJob?.id ?: java.util.UUID.randomUUID().toString(),
                         name = name.ifBlank { (if (isAddingToCompany) presetCompanyName else companyNameInput) ?: "Nouveau Job" },
@@ -520,10 +562,12 @@ fun CreateJobScreen(
                         companyId = presetCompanyId ?: existingJob?.companyId,
                         contractType = contractType,
                         hourlyRateBrut = rate.toDoubleOrNull() ?: 0.0,
-                        weeklyContractHours = hours.toDoubleOrNull() ?: 35.0,
+                        weeklyContractHours = hVal,
+                        includedOvertimeHours = ioVal,
+                        includedOvertimeRatePercent = includedOvertimeRatePercent,
                         annualOvertimeQuota = quota.toIntOrNull() ?: 220,
                         overtimeMode = overtimeMode,
-                        livretThreshold = 43.0,
+                        livretThreshold = existingJob?.livretThreshold ?: 43.0,
                         soldeLivretHeures = existingJob?.soldeLivretHeures ?: 0.0,
                         targetMonthlySalary = existingJob?.targetMonthlySalary ?: 3000.0,
                         startDate = startDate,

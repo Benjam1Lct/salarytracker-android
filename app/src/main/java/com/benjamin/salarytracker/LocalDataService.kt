@@ -54,6 +54,52 @@ class LocalDataService(private val context: Context) : DataService {
             LocalDb()
         }
         var modified = false
+        
+        // Assainir les doublons par nom (fusionner les entreprises de même nom)
+        val companiesByName = db.companies.groupBy { it.name.trim().lowercase() }
+        var companyDeduplicated = false
+        val newCompaniesList = mutableListOf<Company>()
+        
+        companiesByName.forEach { (_, group) ->
+            if (group.size > 1) {
+                val mainCompany = group.first()
+                newCompaniesList.add(mainCompany)
+                val duplicateIds = group.drop(1).map { it.id }.toSet()
+                
+                // Mettre à jour les jobs rattachés aux doublons
+                for (i in db.jobs.indices) {
+                    val job = db.jobs[i]
+                    if (job.companyId in duplicateIds) {
+                        db.jobs[i] = job.copy(companyId = mainCompany.id)
+                        modified = true
+                    }
+                }
+                companyDeduplicated = true
+            } else if (group.isNotEmpty()) {
+                newCompaniesList.add(group.first())
+            }
+        }
+        
+        if (companyDeduplicated) {
+            db.companies.clear()
+            db.companies.addAll(newCompaniesList)
+            modified = true
+        }
+
+        // Assainir également les doublons éventuels par ID restants
+        val uniqueCompanies = db.companies.distinctBy { it.id }.toMutableList()
+        if (uniqueCompanies.size != db.companies.size) {
+            db.companies.clear()
+            db.companies.addAll(uniqueCompanies)
+            modified = true
+        }
+        val uniqueJobs = db.jobs.distinctBy { it.id }.toMutableList()
+        if (uniqueJobs.size != db.jobs.size) {
+            db.jobs.clear()
+            db.jobs.addAll(uniqueJobs)
+            modified = true
+        }
+
         db.entries.forEach { (_, list) ->
             for (i in list.indices) {
                 if (list[i].id.isEmpty()) {

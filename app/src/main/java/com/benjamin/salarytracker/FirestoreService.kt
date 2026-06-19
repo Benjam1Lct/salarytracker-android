@@ -8,6 +8,7 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.time.LocalDate
@@ -23,6 +24,22 @@ import java.time.LocalTime
  *   users/{userId}/jobs/{jobId}/templates/{id} → horaires types
  */
 class FirestoreService {
+    companion object {
+        val forcedStatus = MutableStateFlow<ConnectionStatus?>(null)
+
+        fun reconnect(dbUrl: String) {
+            forcedStatus.value = ConnectionStatus.CONNECTING
+            try {
+                FirebaseDatabase.getInstance(dbUrl).goOnline()
+            } catch (_: Exception) {}
+            // Reset après 5 secondes pour laisser le listener Firebase prendre le relais
+            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
+                delay(5000)
+                forcedStatus.value = null
+            }
+        }
+    }
+
     private val db = FirebaseDatabase.getInstance(SalaryApp.DB_URL)
     private var _userId = "user_benjamin"
     val userId: String get() = _userId
@@ -89,6 +106,19 @@ class FirestoreService {
             trySend(newStatus)
         }
 
+        val forcedJob = launch {
+            forcedStatus.collect { forced ->
+                if (forced != null) {
+                    if (forced == ConnectionStatus.CONNECTING) {
+                        initialSlow.cancel()
+                        initialOffline.cancel()
+                        dropJob?.cancel()
+                    }
+                    updateStatus(forced)
+                }
+            }
+        }
+
         val ref = db.getReference(".info/connected")
         val firebaseListener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
@@ -136,6 +166,7 @@ class FirestoreService {
 
         awaitClose {
             initialSlow.cancel(); initialOffline.cancel(); dropJob?.cancel()
+            forcedJob.cancel()
             ref.removeEventListener(firebaseListener)
             try {
                 connectivityManager?.unregisterNetworkCallback(networkCallback)
@@ -426,6 +457,8 @@ fun DataSnapshot.toJob(): Job? {
             contractType = contractType,
             hourlyRateBrut = dbl("hourlyRateBrut") ?: 0.0,
             weeklyContractHours = dbl("weeklyContractHours") ?: 35.0,
+            includedOvertimeHours = dbl("includedOvertimeHours") ?: 0.0,
+            includedOvertimeRatePercent = dbl("includedOvertimeRatePercent") ?: 25.0,
             annualOvertimeQuota = lng("annualOvertimeQuota")?.toInt() ?: 220,
             overtimeMode = overtimeMode,
             livretThreshold = dbl("livretThreshold") ?: 43.0,
@@ -475,6 +508,8 @@ fun Job.toMap(): Map<String, Any?> = mapOf(
     "contractType" to contractType.name,
     "hourlyRateBrut" to hourlyRateBrut,
     "weeklyContractHours" to weeklyContractHours,
+    "includedOvertimeHours" to includedOvertimeHours,
+    "includedOvertimeRatePercent" to includedOvertimeRatePercent,
     "annualOvertimeQuota" to annualOvertimeQuota,
     "overtimeMode" to overtimeMode.name,
     "livretThreshold" to livretThreshold,

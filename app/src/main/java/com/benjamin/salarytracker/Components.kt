@@ -296,7 +296,7 @@ fun ConnectionTag(
                     if (status == ConnectionStatus.OFFLINE || status == ConnectionStatus.SLOW) {
                         Modifier.clickable {
                             try {
-                                com.google.firebase.database.FirebaseDatabase.getInstance(SalaryApp.DB_URL).goOnline()
+                                FirestoreService.reconnect(SalaryApp.DB_URL)
                                 android.widget.Toast.makeText(context, "Tentative de reconnexion...", android.widget.Toast.LENGTH_SHORT).show()
                             } catch (_: Exception) {}
                         }
@@ -565,8 +565,9 @@ fun JobCard(
                     color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
                             else MaterialTheme.colorScheme.onSurface
                 )
+                val totalHours = job.weeklyContractHours + job.includedOvertimeHours
                 Text(
-                    text = "${fmtMoneyNum(job.hourlyRateBrut)} €/h · ${fmtMoneyNum(job.weeklyContractHours)} h/sem",
+                    text = "${fmtMoneyNum(job.hourlyRateBrut)} €/h · ${fmtMoneyNum(totalHours)} h/sem",
                     style = MaterialTheme.typography.bodySmall,
                     color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.65f)
                             else MaterialTheme.colorScheme.onSurfaceVariant

@@ -81,6 +81,8 @@ data class Job(
     val contractType: ContractType = ContractType.CDI,
     val hourlyRateBrut: Double,
     val weeklyContractHours: Double = 35.0,
+    val includedOvertimeHours: Double = 0.0,
+    val includedOvertimeRatePercent: Double = 25.0,
     val annualOvertimeQuota: Int = 220,
     val overtimeMode: OvertimeMode = OvertimeMode.PAYEE,
     val livretThreshold: Double = 43.0,

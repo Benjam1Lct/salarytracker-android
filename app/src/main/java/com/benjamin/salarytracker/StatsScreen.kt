@@ -70,7 +70,7 @@ fun StatsScreen(
     val serTotalH = mStats.map { it.totalHeuresReellesMois.toFloat() }
     val serSoldeLivret = months.map { m ->
         val entriesUpToM = entries.filter { !it.date.isAfter(m.atEndOfMonth()) }
-        SalaryCalculator.calculateTotalLivretFromEntries(entriesUpToM).toFloat()
+        SalaryCalculator.calculateTotalLivretFromEntries(job, entriesUpToM).toFloat()
     }
     val monthLabels = months.map { it.month.getDisplayName(TextStyle.SHORT, Locale.FRANCE).replaceFirstChar { c -> c.uppercase() } }
 
@@ -351,9 +351,9 @@ private fun WeekCard(w: SalaryCalculator.WeekStats) {
                     w.isOvertime                   -> "Heures sup → livret" to InkMuted
                     w.isCurrentWeek && w.realHours < w.expectedHours -> {
                         val remaining = w.expectedHours - w.realHours
-                        "Encore ${fmtHours(remaining)} pour atteindre 35h" to InkMuted
+                        "Encore ${fmtHours(remaining)} pour atteindre ${fmtHours(w.expectedHours)}" to InkMuted
                     }
-                    w.isUnderWeek                  -> "Sous 35h → puise ${fmtHours(w.deficitHours)} du livret" to NegRed
+                    w.isUnderWeek                  -> "Sous ${fmtHours(w.expectedHours)} → puise ${fmtHours(w.deficitHours)} du livret" to NegRed
                     else                           -> "Standard" to InkMuted
                 }
                 Text(tag, color = tagColor, fontSize = 12.sp)

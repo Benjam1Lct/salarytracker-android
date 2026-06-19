@@ -201,7 +201,7 @@ class SyncDataService(
 
             // --- 2. Lecture des données locales ---
             val localCompanies = local.getCompanies().first()
-            val localJobs = local.getJobs().first()
+            val localJobs = local.getJobs().first().toMutableList()
 
             val localEntries = mutableMapOf<String, DayEntry>()
             val localTemplates = mutableMapOf<String, Pair<DayTemplate, String>>() // id -> (template, jobId)
@@ -229,6 +229,51 @@ class SyncDataService(
             metadata.deletedAt.forEach { (id, tLocal) ->
                 if (!remoteDeleted.containsKey(id)) {
                     remote.fs.userRef.child("deleted").child(id).setValue(tLocal)
+                }
+            }
+
+            // --- 3.5 Fusion et suppression automatique des doublons d'entreprises ---
+            val allCompaniesCombinedList = (localCompanies + remoteCompanies.values.map { it.first })
+                .distinctBy { it.id }
+            val groupedByName = allCompaniesCombinedList.groupBy { it.name.trim().lowercase() }
+            
+            val companiesToMerge = mutableMapOf<String, String>() // duplicateId -> mainId
+            groupedByName.forEach { (_, group) ->
+                if (group.size > 1) {
+                    val mainCompany = group.first()
+                    group.drop(1).forEach { dup ->
+                        companiesToMerge[dup.id] = mainCompany.id
+                    }
+                }
+            }
+
+            if (companiesToMerge.isNotEmpty()) {
+                val now = System.currentTimeMillis()
+                companiesToMerge.forEach { (dupId, _) ->
+                    mergedDeleted[dupId] = now
+                    metadata.setDeletedAt(dupId, now)
+                }
+
+                // Mettre à jour les contrats (Jobs) locaux qui font référence à un doublon
+                for (idx in localJobs.indices) {
+                    val job = localJobs[idx]
+                    if (job.companyId != null && companiesToMerge.containsKey(job.companyId)) {
+                        val newCompanyId = companiesToMerge[job.companyId]
+                        val updatedJob = job.copy(companyId = newCompanyId)
+                        local.addJob(updatedJob)
+                        metadata.setUpdatedAt(job.id, now)
+                        localJobs[idx] = updatedJob
+                    }
+                }
+
+                // Mettre à jour également les contrats (Jobs) distants dans notre map de travail
+                remoteJobs.forEach { (jobId, pair) ->
+                    val job = pair.first
+                    val tJob = pair.second
+                    if (job.companyId != null && companiesToMerge.containsKey(job.companyId)) {
+                        val newCompanyId = companiesToMerge[job.companyId]
+                        remoteJobs[jobId] = job.copy(companyId = newCompanyId) to tJob
+                    }
                 }
             }
 

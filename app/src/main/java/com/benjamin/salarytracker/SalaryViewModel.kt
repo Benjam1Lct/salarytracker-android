@@ -60,7 +60,7 @@ class SalaryViewModel(
             data.setUserId(session.uid)
             flow {
                 data.transferOldDataIfNeeded(session.uid)
-                emitAll(data.getJobs())
+                emitAll(data.getJobs().map { list -> list.distinctBy { it.id } })
             }
         } else {
             flowOf(emptyList())
@@ -69,7 +69,7 @@ class SalaryViewModel(
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val companies: StateFlow<List<Company>> = _userSession.flatMapLatest { session ->
-        if (session != null) data.getCompanies() else flowOf(emptyList())
+        if (session != null) data.getCompanies().map { list -> list.distinctBy { it.name.trim().lowercase() } } else flowOf(emptyList())
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _currentJobId = MutableStateFlow<String?>(null)
@@ -242,7 +242,13 @@ class SalaryViewModel(
 
     /** Crée une entreprise (entité indépendante). [onCreated] reçoit l'entreprise créée. */
     fun createCompany(name: String, onCreated: (Company) -> Unit = {}) {
-        val company = Company(name = name.trim())
+        val trimmedName = name.trim()
+        val existing = companies.value.find { it.name.trim().equals(trimmedName, ignoreCase = true) }
+        if (existing != null) {
+            onCreated(existing)
+            return
+        }
+        val company = Company(name = trimmedName)
         viewModelScope.launch { data.addCompany(company) }
         onCreated(company)
     }
@@ -293,7 +299,7 @@ class SalaryViewModel(
 
             // Recalcul complet du solde livret depuis toutes les entrées + la nouvelle
             val allEntries = entries.value.filter { it.id != entry.id } + entry
-            val newLivretSolde = SalaryCalculator.calculateTotalLivretFromEntries(allEntries)
+            val newLivretSolde = SalaryCalculator.calculateTotalLivretFromEntries(currentJobValue, allEntries)
 
             if (newLivretSolde != currentJobValue.soldeLivretHeures) {
                 data.updateJobFields(
@@ -313,7 +319,7 @@ class SalaryViewModel(
 
             // Recalcul après suppression
             val remainingEntries = entries.value.filter { it.id != entryId }
-            val newLivretSolde = SalaryCalculator.calculateTotalLivretFromEntries(remainingEntries)
+            val newLivretSolde = SalaryCalculator.calculateTotalLivretFromEntries(currentJobValue, remainingEntries)
 
             if (newLivretSolde != currentJobValue.soldeLivretHeures) {
                 data.updateJobFields(
@@ -1036,7 +1042,7 @@ class SalaryViewModel(
                 val newDates = mergedEntries.map { it.date }.toSet()
                 val remainingEntries = existingList.filter { it.date !in newDates }
                 val allEntries = remainingEntries + mergedEntries
-                val newLivretSolde = SalaryCalculator.calculateTotalLivretFromEntries(allEntries)
+                val newLivretSolde = SalaryCalculator.calculateTotalLivretFromEntries(currentJobValue, allEntries)
 
                 if (newLivretSolde != currentJobValue.soldeLivretHeures) {
                     data.updateJobFields(
