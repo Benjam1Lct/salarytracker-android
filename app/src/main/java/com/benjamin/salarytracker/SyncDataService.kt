@@ -63,7 +63,7 @@ class SyncDataService(
                         deletedAt[key] = deletedJson.getLong(key)
                     }
                 }
-            } catch (_: Exception) {}
+            } catch (e: Exception) { android.util.Log.e("SyncDataService", "Error in remote sync", e) }
         }
 
         fun save() {
@@ -76,7 +76,7 @@ class SyncDataService(
                 json.put("updatedAt", updatedJson)
                 json.put("deletedAt", deletedJson)
                 file.writeText(json.toString())
-            } catch (_: Exception) {}
+            } catch (e: Exception) { android.util.Log.e("SyncDataService", "Error in remote sync", e) }
         }
 
         fun getUpdatedAt(id: String): Long = updatedAt[id] ?: 0L
@@ -96,7 +96,7 @@ class SyncDataService(
         }
 
         fun clear() {
-            try { file.delete() } catch (_: Exception) {}
+            try { file.delete() } catch (e: Exception) { android.util.Log.e("SyncDataService", "Error in remote sync", e) }
             updatedAt.clear()
             deletedAt.clear()
         }
@@ -555,7 +555,7 @@ class SyncDataService(
         val now = System.currentTimeMillis()
         metadataManager?.setUpdatedAt(company.id, now)
         syncScope.launch {
-            try { remote.fs.addCompany(company, now) } catch (_: Exception) {}
+            try { remote.fs.addCompany(company, now) } catch (e: Exception) { android.util.Log.e("SyncDataService", "Error in remote sync", e) }
         }
     }
 
@@ -564,7 +564,7 @@ class SyncDataService(
         val now = System.currentTimeMillis()
         metadataManager?.setDeletedAt(companyId, now)
         syncScope.launch {
-            try { remote.fs.deleteCompany(companyId, now) } catch (_: Exception) {}
+            try { remote.fs.deleteCompany(companyId, now) } catch (e: Exception) { android.util.Log.e("SyncDataService", "Error in remote sync", e) }
         }
     }
 
@@ -573,7 +573,7 @@ class SyncDataService(
         val now = System.currentTimeMillis()
         metadataManager?.setUpdatedAt(job.id, now)
         syncScope.launch {
-            try { remote.fs.addJob(job, now) } catch (_: Exception) {}
+            try { remote.fs.addJob(job, now) } catch (e: Exception) { android.util.Log.e("SyncDataService", "Error in remote sync", e) }
         }
     }
 
@@ -582,7 +582,7 @@ class SyncDataService(
         val now = System.currentTimeMillis()
         metadataManager?.setUpdatedAt(job.id, now)
         syncScope.launch {
-            try { remote.fs.updateJob(job, now) } catch (_: Exception) {}
+            try { remote.fs.updateJob(job, now) } catch (e: Exception) { android.util.Log.e("SyncDataService", "Error in remote sync", e) }
         }
     }
 
@@ -591,7 +591,7 @@ class SyncDataService(
         val now = System.currentTimeMillis()
         metadataManager?.setDeletedAt(jobId, now)
         syncScope.launch {
-            try { remote.fs.deleteJob(jobId, now) } catch (_: Exception) {}
+            try { remote.fs.deleteJob(jobId, now) } catch (e: Exception) { android.util.Log.e("SyncDataService", "Error in remote sync", e) }
         }
     }
 
@@ -600,7 +600,7 @@ class SyncDataService(
         val now = System.currentTimeMillis()
         metadataManager?.setUpdatedAt(jobId, now)
         syncScope.launch {
-            try { remote.fs.updateJobFields(jobId, fields, now) } catch (_: Exception) {}
+            try { remote.fs.updateJobFields(jobId, fields, now) } catch (e: Exception) { android.util.Log.e("SyncDataService", "Error in remote sync", e) }
         }
     }
 
@@ -615,7 +615,7 @@ class SyncDataService(
             metadataManager?.setUpdatedAt(job.id, now)
         }
         syncScope.launch {
-            try { remote.fs.setMainJob(jobId, now) } catch (_: Exception) {}
+            try { remote.fs.setMainJob(jobId, now) } catch (e: Exception) { android.util.Log.e("SyncDataService", "Error in remote sync", e) }
         }
     }
 
@@ -624,7 +624,7 @@ class SyncDataService(
         val now = System.currentTimeMillis()
         metadataManager?.setUpdatedAt(entry.id, now)
         syncScope.launch {
-            try { remote.fs.addDayEntry(jobId, entry, now) } catch (_: Exception) {}
+            try { remote.fs.addDayEntry(jobId, entry, now) } catch (e: Exception) { android.util.Log.e("SyncDataService", "Error in remote sync", e) }
         }
     }
 
@@ -635,7 +635,7 @@ class SyncDataService(
             metadataManager?.setUpdatedAt(entry.id, now)
         }
         syncScope.launch {
-            try { remote.fs.addDayEntries(jobId, entries, now) } catch (_: Exception) {}
+            try { remote.fs.addDayEntries(jobId, entries, now) } catch (e: Exception) { android.util.Log.e("SyncDataService", "Error in remote sync", e) }
         }
     }
 
@@ -644,7 +644,7 @@ class SyncDataService(
         val now = System.currentTimeMillis()
         metadataManager?.setDeletedAt(entryId, now)
         syncScope.launch {
-            try { remote.fs.deleteDayEntry(jobId, entryId, now) } catch (_: Exception) {}
+            try { remote.fs.deleteDayEntry(jobId, entryId, now) } catch (e: Exception) { android.util.Log.e("SyncDataService", "Error in remote sync", e) }
         }
     }
 
@@ -663,7 +663,7 @@ class SyncDataService(
                     remote.fs.userRef.updateChildren(updates).await()
                 }
                 remote.fs.userRef.child("jobs").child(jobId).child("days").removeValue().await()
-            } catch (_: Exception) {}
+            } catch (e: Exception) { android.util.Log.e("SyncDataService", "Error in remote sync", e) }
         }
     }
 
@@ -672,7 +672,7 @@ class SyncDataService(
         val now = System.currentTimeMillis()
         metadataManager?.setUpdatedAt(template.id, now)
         syncScope.launch {
-            try { remote.fs.addTemplate(jobId, template, now) } catch (_: Exception) {}
+            try { remote.fs.addTemplate(jobId, template, now) } catch (e: Exception) { android.util.Log.e("SyncDataService", "Error in remote sync", e) }
         }
     }
 
@@ -681,7 +681,7 @@ class SyncDataService(
         val now = System.currentTimeMillis()
         metadataManager?.setDeletedAt(templateId, now)
         syncScope.launch {
-            try { remote.fs.deleteTemplate(jobId, templateId, now) } catch (_: Exception) {}
+            try { remote.fs.deleteTemplate(jobId, templateId, now) } catch (e: Exception) { android.util.Log.e("SyncDataService", "Error in remote sync", e) }
         }
     }
 
@@ -690,7 +690,7 @@ class SyncDataService(
         val now = System.currentTimeMillis()
         metadataManager?.setUpdatedAt(rule.id, now)
         syncScope.launch {
-            try { remote.fs.addAutoRule(jobId, rule, now) } catch (_: Exception) {}
+            try { remote.fs.addAutoRule(jobId, rule, now) } catch (e: Exception) { android.util.Log.e("SyncDataService", "Error in remote sync", e) }
         }
     }
 
@@ -699,7 +699,7 @@ class SyncDataService(
         val now = System.currentTimeMillis()
         metadataManager?.setDeletedAt(ruleId, now)
         syncScope.launch {
-            try { remote.fs.deleteAutoRule(jobId, ruleId, now) } catch (_: Exception) {}
+            try { remote.fs.deleteAutoRule(jobId, ruleId, now) } catch (e: Exception) { android.util.Log.e("SyncDataService", "Error in remote sync", e) }
         }
     }
 
@@ -708,7 +708,7 @@ class SyncDataService(
         val now = System.currentTimeMillis()
         metadataManager?.setUpdatedAt(payslip.id, now)
         syncScope.launch {
-            try { remote.fs.addPayslip(jobId, payslip, now) } catch (_: Exception) {}
+            try { remote.fs.addPayslip(jobId, payslip, now) } catch (e: Exception) { android.util.Log.e("SyncDataService", "Error in remote sync", e) }
         }
     }
 
@@ -717,7 +717,7 @@ class SyncDataService(
         val now = System.currentTimeMillis()
         metadataManager?.setDeletedAt(payslipId, now)
         syncScope.launch {
-            try { remote.fs.deletePayslip(jobId, payslipId, now) } catch (_: Exception) {}
+            try { remote.fs.deletePayslip(jobId, payslipId, now) } catch (e: Exception) { android.util.Log.e("SyncDataService", "Error in remote sync", e) }
         }
     }
 
@@ -726,7 +726,7 @@ class SyncDataService(
         val now = System.currentTimeMillis()
         metadataManager?.setUpdatedAt("appTheme", now)
         syncScope.launch {
-            try { remote.fs.updateAppTheme(theme, now) } catch (_: Exception) {}
+            try { remote.fs.updateAppTheme(theme, now) } catch (e: Exception) { android.util.Log.e("SyncDataService", "Error in remote sync", e) }
         }
     }
 
@@ -735,7 +735,8 @@ class SyncDataService(
         val now = System.currentTimeMillis()
         metadataManager?.setUpdatedAt("geminiApiKey", now)
         syncScope.launch {
-            try { remote.fs.saveGeminiApiKey(key, now) } catch (_: Exception) {}
+            try { remote.fs.saveGeminiApiKey(key, now) } catch (e: Exception) { android.util.Log.e("SyncDataService", "Error in remote sync", e) }
         }
     }
 }
+

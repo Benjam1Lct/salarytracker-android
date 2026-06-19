@@ -156,6 +156,15 @@ class SalaryViewModel(
             }
         }
 
+        // Assure que le userId est bien configuré sur la couche de données dès que la session change.
+        viewModelScope.launch {
+            _userSession.collect { session ->
+                if (session != null) {
+                    data.setUserId(session.uid)
+                }
+            }
+        }
+
         // Vérifie la version minimale requise (config/minVersionCode dans Firebase) à chaque fois que l'app passe en ligne.
         viewModelScope.launch {
             connectionStatus.collect { status ->

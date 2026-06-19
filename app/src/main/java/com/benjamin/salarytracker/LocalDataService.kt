@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.flowOf
 import java.io.File
 import java.io.ObjectInputStream
 import java.io.ObjectOutputStream
+import java.time.LocalDate
 
 /**
  * Implémentation locale de [DataService] : toutes les données sont stockées
@@ -209,8 +210,21 @@ class LocalDataService(private val context: Context) : DataService {
         var j = db.jobs[idx]
         fields.forEach { (key, value) ->
             j = when (key) {
+                "name" -> j.copy(name = value as? String ?: j.name)
+                "companyName" -> j.copy(companyName = value as? String ?: j.companyName)
+                "companyId" -> j.copy(companyId = value as? String ?: j.companyId)
+                "contractType" -> j.copy(contractType = (value as? String)?.let { try { ContractType.valueOf(it) } catch(_: Exception) { null } } ?: j.contractType)
+                "hourlyRateBrut" -> j.copy(hourlyRateBrut = (value as? Number)?.toDouble() ?: j.hourlyRateBrut)
+                "weeklyContractHours" -> j.copy(weeklyContractHours = (value as? Number)?.toDouble() ?: j.weeklyContractHours)
+                "includedOvertimeHours" -> j.copy(includedOvertimeHours = (value as? Number)?.toDouble() ?: j.includedOvertimeHours)
+                "includedOvertimeRatePercent" -> j.copy(includedOvertimeRatePercent = (value as? Number)?.toDouble() ?: j.includedOvertimeRatePercent)
+                "annualOvertimeQuota" -> j.copy(annualOvertimeQuota = (value as? Number)?.toInt() ?: j.annualOvertimeQuota)
+                "overtimeMode" -> j.copy(overtimeMode = (value as? String)?.let { try { OvertimeMode.valueOf(it) } catch(_: Exception) { null } } ?: j.overtimeMode)
+                "livretThreshold" -> j.copy(livretThreshold = (value as? Number)?.toDouble() ?: j.livretThreshold)
                 "soldeLivretHeures" -> j.copy(soldeLivretHeures = (value as? Number)?.toDouble() ?: j.soldeLivretHeures)
                 "targetMonthlySalary" -> j.copy(targetMonthlySalary = (value as? Number)?.toDouble() ?: j.targetMonthlySalary)
+                "startDate" -> j.copy(startDate = (value as? String)?.let { try { LocalDate.parse(it) } catch(_: Exception) { null } } ?: j.startDate)
+                "endDate" -> j.copy(endDate = (value as? String)?.let { try { LocalDate.parse(it) } catch(_: Exception) { null } } ?: j.endDate)
                 "isMainJob" -> j.copy(isMainJob = value as? Boolean ?: j.isMainJob)
                 "isArchived" -> j.copy(isArchived = value as? Boolean ?: j.isArchived)
                 else -> j
