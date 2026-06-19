@@ -156,19 +156,13 @@ class SalaryViewModel(
             }
         }
 
-        // Vérifie la version minimale requise (config/minVersionCode dans Firebase).
-        // En cas d'erreur (hors-ligne, règle absente) → on n'impose rien (fail-open).
+        // Vérifie la version minimale requise (config/minVersionCode dans Firebase) à chaque fois que l'app passe en ligne.
         viewModelScope.launch {
-            try {
-                val snap = com.google.firebase.database.FirebaseDatabase.getInstance(SalaryApp.DB_URL)
-                    .getReference("config/minVersionCode").get().await()
-                val min = when (val value = snap.value) {
-                    is Number -> value.toInt()
-                    is String -> value.toDoubleOrNull()?.toInt() ?: 0
-                    else -> 0
+            connectionStatus.collect { status ->
+                if (status == ConnectionStatus.CONNECTED) {
+                    checkMinVersion()
                 }
-                if (BuildConfig.VERSION_CODE < min) _updateRequired.value = true
-            } catch (_: Exception) {}
+            }
         }
 
         viewModelScope.launch {
@@ -192,6 +186,23 @@ class SalaryViewModel(
                     .filter { it !in existingNames }
                 missing.forEach { name -> data.addCompany(Company(name = name)) }
             }
+        }
+    }
+
+    private fun checkMinVersion() {
+        viewModelScope.launch {
+            try {
+                val snap = com.google.firebase.database.FirebaseDatabase.getInstance(SalaryApp.DB_URL)
+                    .getReference("config/minVersionCode").get().await()
+                val min = when (val value = snap.value) {
+                    is Number -> value.toInt()
+                    is String -> value.toDoubleOrNull()?.toInt() ?: 0
+                    else -> 0
+                }
+                if (BuildConfig.VERSION_CODE < min) {
+                    _updateRequired.value = true
+                }
+            } catch (_: Exception) {}
         }
     }
 
