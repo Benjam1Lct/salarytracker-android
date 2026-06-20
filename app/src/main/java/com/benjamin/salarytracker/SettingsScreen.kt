@@ -19,6 +19,8 @@ import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.*
 import java.util.Locale
 import androidx.compose.runtime.*
@@ -26,6 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -37,6 +40,10 @@ fun SettingsScreen(
     connectionStatus: ConnectionStatus,
     userSession: UserSession?,
     geminiApiKey: String,
+    isSubscribed: Boolean = false,
+    onOpenSubscription: () -> Unit = {},
+    appLanguage: String = "system",
+    onLanguageChange: (String) -> Unit = {},
     dailyReminderEnabled: Boolean,
     dailyReminderHour: Int,
     dailyReminderMinute: Int,
@@ -69,18 +76,47 @@ fun SettingsScreen(
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.Default.Close, contentDescription = "Fermer", tint = MaterialTheme.colorScheme.onBackground)
+                    Icon(Icons.Default.Close, contentDescription = stringResource(R.string.common_close), tint = MaterialTheme.colorScheme.onBackground)
                 }
                 Column(modifier = Modifier.padding(vertical = 6.dp)) {
-                    Text("PRÉFÉRENCES", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, letterSpacing = 1.2.sp)
-                    Text("Paramètres", color = MaterialTheme.colorScheme.onBackground, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.set_prefs_header), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, letterSpacing = 1.2.sp)
+                    Text(stringResource(R.string.set_title), color = MaterialTheme.colorScheme.onBackground, fontSize = 24.sp, fontWeight = FontWeight.Bold)
                 }
             }
 
             Spacer(Modifier.height(24.dp))
 
+            // ─── Carte SalaryTracker Pro ───────────────────────────────────
+            if (userSession != null && !userSession.isLocal) {
+                AppCard(padding = 0.dp, onClick = onOpenSubscription) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier.size(44.dp).clip(RoundedCornerShape(13.dp))
+                                .background(MaterialTheme.colorScheme.primary),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.AutoAwesome, null, tint = Color.White, modifier = Modifier.size(22.dp))
+                        }
+                        Spacer(Modifier.width(14.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(stringResource(R.string.sub_settings_entry), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                            Text(
+                                if (isSubscribed) stringResource(R.string.sub_active) else stringResource(R.string.sub_settings_entry_desc),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (isSubscribed) Color(0xFF10B981) else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Icon(Icons.Default.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                Spacer(Modifier.height(24.dp))
+            }
+
             if (userSession != null) {
-                SectionLabel("Profil & Compte")
+                SectionLabel(stringResource(R.string.set_profile_account))
                 Spacer(Modifier.height(12.dp))
                 AppCard(padding = 18.dp) {
                     Row(
@@ -132,7 +168,7 @@ fun SettingsScreen(
                     ) {
                         Icon(Icons.Default.ExitToApp, null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(8.dp))
-                        Text("Se déconnecter", fontWeight = FontWeight.SemiBold)
+                        Text(stringResource(R.string.set_logout), fontWeight = FontWeight.SemiBold)
                     }
 
                     Spacer(Modifier.height(10.dp))
@@ -143,7 +179,7 @@ fun SettingsScreen(
                     ) {
                         Icon(Icons.Default.DeleteForever, null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.error)
                         Spacer(Modifier.width(8.dp))
-                        Text("Supprimer mon compte", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
+                        Text(stringResource(R.string.set_delete_account), color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
                     }
                 }
 
@@ -151,11 +187,9 @@ fun SettingsScreen(
                     AlertDialog(
                         onDismissRequest = { showDeleteConfirm = false },
                         icon = { Icon(Icons.Default.DeleteForever, null, tint = MaterialTheme.colorScheme.error) },
-                        title = { Text("Supprimer définitivement ?") },
+                        title = { Text(stringResource(R.string.set_delete_confirm_title)) },
                         text = {
-                            Text(
-                                "Toutes vos données (emplois, journées, templates, bulletins) et votre compte seront supprimés définitivement. Cette action est irréversible."
-                            )
+                            Text(stringResource(R.string.set_delete_confirm_text))
                         },
                         confirmButton = {
                             Button(
@@ -167,23 +201,23 @@ fun SettingsScreen(
                                     containerColor = MaterialTheme.colorScheme.error,
                                     contentColor = MaterialTheme.colorScheme.onError
                                 )
-                            ) { Text("Supprimer") }
+                            ) { Text(stringResource(R.string.set_delete)) }
                         },
                         dismissButton = {
-                            TextButton(onClick = { showDeleteConfirm = false }) { Text("Annuler") }
+                            TextButton(onClick = { showDeleteConfirm = false }) { Text(stringResource(R.string.common_cancel)) }
                         }
                     )
                 }
 
                 Spacer(Modifier.height(24.dp))
 
-                SectionLabel("Données")
+                SectionLabel(stringResource(R.string.set_data))
                 Spacer(Modifier.height(12.dp))
                 AppCard(padding = 18.dp) {
-                    Text("Supprimer toutes les journées", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                    Text(stringResource(R.string.set_delete_all_days), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        "Efface toutes les journées enregistrées (tous les contrats) et remet le livret d'heures à zéro. Les contrats et entreprises sont conservés.",
+                        stringResource(R.string.set_delete_all_days_desc),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -196,7 +230,7 @@ fun SettingsScreen(
                     ) {
                         Icon(Icons.Default.DeleteSweep, null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(8.dp))
-                        Text("Supprimer toutes les journées", fontWeight = FontWeight.SemiBold)
+                        Text(stringResource(R.string.set_delete_all_days), fontWeight = FontWeight.SemiBold)
                     }
                 }
 
@@ -204,8 +238,8 @@ fun SettingsScreen(
                     AlertDialog(
                         onDismissRequest = { showDeleteEntriesConfirm = false },
                         icon = { Icon(Icons.Default.DeleteSweep, null, tint = MaterialTheme.colorScheme.error) },
-                        title = { Text("Supprimer toutes les journées ?") },
-                        text = { Text("Toutes les journées enregistrées seront définitivement supprimées et le livret remis à zéro. Cette action est irréversible.") },
+                        title = { Text(stringResource(R.string.set_delete_all_days_q)) },
+                        text = { Text(stringResource(R.string.set_delete_all_days_confirm)) },
                         confirmButton = {
                             Button(
                                 onClick = {
@@ -216,15 +250,15 @@ fun SettingsScreen(
                                     containerColor = MaterialTheme.colorScheme.error,
                                     contentColor = MaterialTheme.colorScheme.onError
                                 )
-                            ) { Text("Tout supprimer") }
+                            ) { Text(stringResource(R.string.set_delete_all)) }
                         },
-                        dismissButton = { TextButton(onClick = { showDeleteEntriesConfirm = false }) { Text("Annuler") } }
+                        dismissButton = { TextButton(onClick = { showDeleteEntriesConfirm = false }) { Text(stringResource(R.string.common_cancel)) } }
                     )
                 }
 
                 Spacer(Modifier.height(24.dp))
 
-                SectionLabel("Méthodes de connexion")
+                SectionLabel(stringResource(R.string.set_login_methods))
                 Spacer(Modifier.height(12.dp))
                 LinkedAccountsSection(
                     linkedProviders = linkedProviders,
@@ -235,18 +269,18 @@ fun SettingsScreen(
 
                 Spacer(Modifier.height(24.dp))
 
-                SectionLabel("Intelligence Artificielle")
+                SectionLabel(stringResource(R.string.set_ai))
                 Spacer(Modifier.height(12.dp))
                 AppCard(padding = 18.dp) {
                     Text(
-                        text = "Clé API Gemini",
+                        text = stringResource(R.string.set_gemini_key),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        text = "Pour importer vos notes libres et relevés d'heures manuscrits grâce à l'IA, renseignez votre propre clé API Gemini. Elle reste confidentielle et stockée sur votre compte.",
+                        text = stringResource(R.string.set_gemini_desc),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -255,7 +289,7 @@ fun SettingsScreen(
 
                     val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
                     Text(
-                        text = "Obtenir une clé API sur Google AI Studio ↗",
+                        text = stringResource(R.string.set_get_api_key),
                         color = MaterialTheme.colorScheme.primary,
                         style = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.SemiBold,
@@ -283,7 +317,7 @@ fun SettingsScreen(
                     OutlinedTextField(
                         value = apiKeyInput,
                         onValueChange = { apiKeyInput = it },
-                        label = { Text("Clé API Gemini") },
+                        label = { Text(stringResource(R.string.set_gemini_key)) },
                         singleLine = true,
                         placeholder = { Text("AIzaSy...") },
                         visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
@@ -293,31 +327,54 @@ fun SettingsScreen(
 
                     Spacer(Modifier.height(12.dp))
 
+                    // Clé déjà enregistrée et champ inchangé → mode suppression.
+                    val isExistingKey = geminiApiKey.isNotBlank() && apiKeyInput == geminiApiKey
+
                     Button(
                         onClick = {
-                            onSaveApiKey(apiKeyInput.trim())
-                            showSavedFeedback = true
+                            if (showSavedFeedback) return@Button
+                            if (isExistingKey) {
+                                onSaveApiKey("")
+                                apiKeyInput = ""
+                            } else {
+                                onSaveApiKey(apiKeyInput.trim())
+                                showSavedFeedback = true
+                            }
                         },
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = if (showSavedFeedback) Color(0xFF10B981) else MaterialTheme.colorScheme.primary,
-                            contentColor = if (showSavedFeedback) Color.White else MaterialTheme.colorScheme.onPrimary
+                            containerColor = when {
+                                showSavedFeedback -> Color(0xFF10B981)
+                                isExistingKey -> MaterialTheme.colorScheme.errorContainer
+                                else -> MaterialTheme.colorScheme.primary
+                            },
+                            contentColor = when {
+                                showSavedFeedback -> Color.White
+                                isExistingKey -> MaterialTheme.colorScheme.onErrorContainer
+                                else -> MaterialTheme.colorScheme.onPrimary
+                            }
                         ),
                         shape = RoundedCornerShape(12.dp)
                     ) {
-                        if (showSavedFeedback) {
-                            Icon(Icons.Default.Check, null, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text("Clé enregistrée !", fontWeight = FontWeight.SemiBold)
-                        } else {
-                            Text("Enregistrer la clé", fontWeight = FontWeight.SemiBold)
+                        when {
+                            showSavedFeedback -> {
+                                Icon(Icons.Default.Check, null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text(stringResource(R.string.set_key_saved), fontWeight = FontWeight.SemiBold)
+                            }
+                            isExistingKey -> {
+                                Icon(Icons.Default.DeleteForever, null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text(stringResource(R.string.set_delete_key), fontWeight = FontWeight.SemiBold)
+                            }
+                            else -> Text(stringResource(R.string.set_save_key), fontWeight = FontWeight.SemiBold)
                         }
                     }
                 }
 
                 Spacer(Modifier.height(24.dp))
 
-                SectionLabel("Notifications")
+                SectionLabel(stringResource(R.string.set_notifications))
                 Spacer(Modifier.height(12.dp))
                 AppCard(padding = 18.dp) {
                     Row(
@@ -327,13 +384,13 @@ fun SettingsScreen(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Rappel quotidien de saisie",
+                                text = stringResource(R.string.set_daily_reminder),
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = "Recevez un rappel en fin de journée si aucune heure n'a été saisie aujourd'hui.",
+                                text = stringResource(R.string.set_daily_reminder_desc),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -356,11 +413,11 @@ fun SettingsScreen(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
-                                text = "Heure de notification",
+                                text = stringResource(R.string.set_notif_time),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
-                            val timeStr = String.format(Locale.FRANCE, "%02d:%02d", dailyReminderHour, dailyReminderMinute)
+                            val timeStr = String.format(Locale.getDefault(), "%02d:%02d", dailyReminderHour, dailyReminderMinute)
                             Box(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(8.dp))
@@ -390,12 +447,12 @@ fun SettingsScreen(
                                     TextButton(onClick = {
                                         onUpdateDailyReminderTime(timeState.hour, timeState.minute)
                                         showTimePicker = false
-                                    }) { Text("OK") }
+                                    }) { Text(stringResource(R.string.common_ok)) }
                                 },
                                 dismissButton = {
-                                    TextButton(onClick = { showTimePicker = false }) { Text("Annuler") }
+                                    TextButton(onClick = { showTimePicker = false }) { Text(stringResource(R.string.common_cancel)) }
                                 },
-                                title = { Text("Choisir l'heure", style = MaterialTheme.typography.titleMedium) },
+                                title = { Text(stringResource(R.string.comp_pick_time), style = MaterialTheme.typography.titleMedium) },
                                 text = {
                                     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                                         TimePicker(state = timeState)
@@ -409,26 +466,48 @@ fun SettingsScreen(
                 Spacer(Modifier.height(24.dp))
             }
 
-            SectionLabel("Apparence")
+            // ─── Langue ────────────────────────────────────────────────────
+            SectionLabel(stringResource(R.string.set_language))
+            Spacer(Modifier.height(12.dp))
+            AppCard(padding = 18.dp) {
+                val langCodes = listOf("system", "fr", "en")
+                SegmentedToggle(
+                    options = listOf(
+                        stringResource(R.string.set_lang_system),
+                        stringResource(R.string.set_lang_fr),
+                        stringResource(R.string.set_lang_en)
+                    ),
+                    selected = langCodes.indexOf(appLanguage).coerceAtLeast(0),
+                    onSelect = { idx ->
+                        val newLang = langCodes[idx]
+                        if (newLang != appLanguage) onLanguageChange(newLang)
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            Spacer(Modifier.height(24.dp))
+
+            SectionLabel(stringResource(R.string.set_appearance))
             Spacer(Modifier.height(12.dp))
             
             AppCard(padding = 18.dp) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Palette, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(10.dp))
-                    Text("Couleur d'accent", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
+                    Text(stringResource(R.string.set_accent_color), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
                 }
                 Spacer(Modifier.height(20.dp))
                 
                 var showRestartDialog by remember { mutableStateOf<String?>(null) }
                 
                 val themes = listOf(
-                    Triple("purple", "Violet", Color(0xFF8B7CF6)),
-                    Triple("blue", "Bleu", Color(0xFF3B82F6)),
-                    Triple("green", "Vert", Color(0xFF10B981)),
-                    Triple("orange", "Orange", Color(0xFFF59E0B)),
-                    Triple("red", "Rouge", Color(0xFFEF4444)),
-                    Triple("pink", "Rose", Color(0xFFEC4899))
+                    Triple("purple", stringResource(R.string.set_theme_purple), Color(0xFF8B7CF6)),
+                    Triple("blue", stringResource(R.string.set_theme_blue), Color(0xFF3B82F6)),
+                    Triple("green", stringResource(R.string.set_theme_green), Color(0xFF10B981)),
+                    Triple("orange", stringResource(R.string.set_theme_orange), Color(0xFFF59E0B)),
+                    Triple("red", stringResource(R.string.set_theme_red), Color(0xFFEF4444)),
+                    Triple("pink", stringResource(R.string.set_theme_pink), Color(0xFFEC4899))
                 )
                 
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -445,17 +524,17 @@ fun SettingsScreen(
                 if (showRestartDialog != null) {
                     AlertDialog(
                         onDismissRequest = { showRestartDialog = null },
-                        title = { Text("Changer d'icône ?") },
-                        text = { Text("L'application va se fermer pour mettre à jour l'icône sur votre écran d'accueil.") },
+                        title = { Text(stringResource(R.string.set_change_icon_q)) },
+                        text = { Text(stringResource(R.string.set_change_icon_text)) },
                         confirmButton = {
-                            Button(onClick = { 
+                            Button(onClick = {
                                 val target = showRestartDialog!!
                                 showRestartDialog = null
                                 onThemeChange(target)
-                            }) { Text("Confirmer") }
+                            }) { Text(stringResource(R.string.common_confirm)) }
                         },
                         dismissButton = {
-                            TextButton(onClick = { showRestartDialog = null }) { Text("Annuler") }
+                            TextButton(onClick = { showRestartDialog = null }) { Text(stringResource(R.string.common_cancel)) }
                         }
                     )
                 }
@@ -535,7 +614,7 @@ private fun LinkedAccountsSection(
 
     AppCard(padding = 18.dp) {
         Text(
-            "Liez plusieurs méthodes à votre compte pour vous connecter de différentes façons.",
+            stringResource(R.string.set_link_desc),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -550,16 +629,16 @@ private fun LinkedAccountsSection(
                 Spacer(Modifier.width(12.dp))
                 Text(row.label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
                 if (linked) {
-                    Icon(Icons.Default.CheckCircle, "Lié", tint = Color(0xFF10B981), modifier = Modifier.size(20.dp))
+                    Icon(Icons.Default.CheckCircle, stringResource(R.string.set_linked), tint = Color(0xFF10B981), modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(8.dp))
                     if (linkedProviders.size > 1) {
                         TextButton(onClick = { onUnlinkProvider(row.id) }) {
-                            Text("Délier", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelMedium)
+                            Text(stringResource(R.string.set_unlink), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelMedium)
                         }
                     }
                 } else {
                     OutlinedButton(onClick = row.onLink, shape = RoundedCornerShape(10.dp)) {
-                        Text("Lier", style = MaterialTheme.typography.labelMedium)
+                        Text(stringResource(R.string.set_link), style = MaterialTheme.typography.labelMedium)
                     }
                 }
             }
@@ -573,11 +652,12 @@ private fun LinkedAccountsSection(
         var password by remember { mutableStateOf("") }
         var loading by remember { mutableStateOf(false) }
         var errorMessage by remember { mutableStateOf<String?>(null) }
+        val genericError = stringResource(R.string.set_generic_error)
 
         AlertDialog(
             onDismissRequest = { if (!loading) showEmailPasswordDialog = false },
             icon = { Icon(Icons.Default.Email, null, tint = MaterialTheme.colorScheme.primary) },
-            title = { Text("Lier un e-mail") },
+            title = { Text(stringResource(R.string.set_link_email_title)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     if (errorMessage != null) {
@@ -586,7 +666,7 @@ private fun LinkedAccountsSection(
                     OutlinedTextField(
                         value = email,
                         onValueChange = { email = it },
-                        label = { Text("Adresse e-mail") },
+                        label = { Text(stringResource(R.string.set_email_addr)) },
                         singleLine = true,
                         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Email),
                         shape = RoundedCornerShape(12.dp),
@@ -596,7 +676,7 @@ private fun LinkedAccountsSection(
                     OutlinedTextField(
                         value = password,
                         onValueChange = { password = it },
-                        label = { Text("Mot de passe") },
+                        label = { Text(stringResource(R.string.set_password)) },
                         singleLine = true,
                         visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
                         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Password),
@@ -612,7 +692,7 @@ private fun LinkedAccountsSection(
                         ) {
                             CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                             Spacer(Modifier.width(12.dp))
-                            Text("Liaison en cours…", style = MaterialTheme.typography.bodySmall)
+                            Text(stringResource(R.string.set_linking), style = MaterialTheme.typography.bodySmall)
                         }
                     }
                 }
@@ -627,13 +707,13 @@ private fun LinkedAccountsSection(
                             if (success) {
                                 showEmailPasswordDialog = false
                             } else {
-                                errorMessage = err ?: "Une erreur est survenue."
+                                errorMessage = err ?: genericError
                             }
                         }
                     },
                     enabled = email.isNotBlank() && password.length >= 6 && !loading
                 ) {
-                    Text("Lier")
+                    Text(stringResource(R.string.set_link))
                 }
             },
             dismissButton = {
@@ -641,7 +721,7 @@ private fun LinkedAccountsSection(
                     onClick = { showEmailPasswordDialog = false },
                     enabled = !loading
                 ) {
-                    Text("Fermer")
+                    Text(stringResource(R.string.common_close))
                 }
             }
         )

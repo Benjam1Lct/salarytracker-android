@@ -43,12 +43,12 @@ object ExportService {
             val intent = Intent(Intent.ACTION_SEND).apply {
                 type = "text/csv"
                 putExtra(Intent.EXTRA_STREAM, uri)
-                putExtra(Intent.EXTRA_SUBJECT, "Journées – ${job.name}")
+                putExtra(Intent.EXTRA_SUBJECT, context.getString(R.string.export_subject, job.name))
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
-            context.startActivity(Intent.createChooser(intent, "Exporter les journées"))
+            context.startActivity(Intent.createChooser(intent, context.getString(R.string.export_chooser)))
         } catch (e: Exception) {
-            android.widget.Toast.makeText(context, "Export impossible : ${e.message}", android.widget.Toast.LENGTH_LONG).show()
+            android.widget.Toast.makeText(context, context.getString(R.string.export_failed, e.message ?: ""), android.widget.Toast.LENGTH_LONG).show()
         }
     }
 

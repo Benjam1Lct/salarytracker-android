@@ -23,6 +23,14 @@
           }
         },
         {
+          "client_id": "674373401351-uhtnl0obupp2jda705kd0cqnbhji63e2.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.benjamin.salarytracker",
+            "certificate_hash": "5c575acb958ade573a10cac9840fb0993173ad60"
+          }
+        },
+        {
           "client_id": "674373401351-7lmk0k5rj3i3tiho0tatr20e0qsv1p30.apps.googleusercontent.com",
           "client_type": 3
         }

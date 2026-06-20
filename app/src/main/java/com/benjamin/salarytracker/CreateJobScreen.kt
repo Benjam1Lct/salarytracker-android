@@ -20,6 +20,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -41,6 +42,7 @@ fun CreateJobScreen(
     existingJob: Job? = null,
     geminiApiKey: String,
     useLocalAi: Boolean = false,
+    isSubscribed: Boolean = false,
     presetCompanyId: String? = null,
     presetCompanyName: String? = null,
     onNeedGeminiKey: () -> Unit = {},
@@ -72,7 +74,7 @@ fun CreateJobScreen(
 
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    val ocrService = remember(geminiApiKey) { OcrService(context, geminiApiKey) }
+    val ocrService = remember(geminiApiKey, isSubscribed) { OcrService(context, geminiApiKey, useBackend = isSubscribed) }
 
     // Noms lisibles des fichiers sélectionnés (pour l'affichage)
     val selectedNames = remember(selectedUris) {
@@ -83,14 +85,14 @@ fun CreateJobScreen(
 
     fun runAnalysis() {
         if (selectedUris.isEmpty() || isAnalyzing) return
-        // Aucun mode IA choisi → on ouvre la modal de configuration et on abandonne.
-        if (!useLocalAi && geminiApiKey.isBlank()) {
+        // Aucun mode IA choisi → on ouvre la modal de configuration (sauf abonnés).
+        if (!isSubscribed && !useLocalAi && geminiApiKey.isBlank()) {
             onNeedGeminiKey()
             return
         }
-        val analyzeLocally = useLocalAi || geminiApiKey.isBlank()
+        val analyzeLocally = !isSubscribed && (useLocalAi || geminiApiKey.isBlank())
         isAnalyzing = true
-        analysisStatus = "Préparation des documents…"
+        analysisStatus = context.getString(R.string.cj_preparing)
         scope.launch {
             val result = if (analyzeLocally) {
                 localOcrService.extractMultiContractData(selectedUris) { status -> analysisStatus = status }
@@ -113,10 +115,10 @@ fun CreateJobScreen(
                     overtimeMode = job.overtimeMode
                     job.startDate?.let { startDate = it }
                     job.endDate?.let { endDate = it }
-                    Toast.makeText(context, "Analyse terminée ✓", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, context.getString(R.string.cj_analysis_done), Toast.LENGTH_SHORT).show()
                 }
                 is ContractAnalysis.Failure -> {
-                    Toast.makeText(context, "Échec : ${result.reason}", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, context.getString(R.string.ps_failed, result.reason), Toast.LENGTH_LONG).show()
                 }
             }
             // Reset de la liste une fois l'analyse terminée (succès comme échec)
@@ -140,7 +142,7 @@ fun CreateJobScreen(
                         if (pickingStartDate) startDate = date else endDate = date
                     }
                     pickingStartDate = false; pickingEndDate = false
-                }) { Text("Confirmer") }
+                }) { Text(stringResource(R.string.common_confirm)) }
             }
         ) { DatePicker(state = datePickerState) }
     }
@@ -160,7 +162,7 @@ fun CreateJobScreen(
                 title = {
                     Column {
                         Text(
-                            if (isEditing) "MODIFICATION" else "NOUVEAU CONTRAT",
+                            if (isEditing) stringResource(R.string.cj_edit_header) else stringResource(R.string.cj_new_header),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             letterSpacing = 1.2.sp
@@ -169,7 +171,7 @@ fun CreateJobScreen(
                             when {
                                 isEditing -> existingJob!!.name
                                 isAddingToCompany -> presetCompanyName!!
-                                else -> "Paramétrage"
+                                else -> stringResource(R.string.cj_setup)
                             },
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold
@@ -178,7 +180,7 @@ fun CreateJobScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.Close, "Fermer")
+                        Icon(Icons.Default.Close, stringResource(R.string.common_close))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
@@ -202,10 +204,10 @@ fun CreateJobScreen(
                     elevation = CardDefaults.cardElevation(0.dp)
                 ) {
                     Column(modifier = Modifier.padding(18.dp)) {
-                        Text("Analyse automatique (IA)", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                        Text(stringResource(R.string.cj_auto_analysis), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
                         Spacer(Modifier.height(4.dp))
                         Text(
-                            "Importez plusieurs images et/ou PDF de votre contrat. Toutes les pages seront analysées ensemble.",
+                            stringResource(R.string.cj_import_hint),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
@@ -221,7 +223,7 @@ fun CreateJobScreen(
                                 ) {
                                     CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.5.dp)
                                     Text(
-                                        analysisStatus.ifBlank { "Préparation et analyse de ${selectedUris.size} document(s) en cours…" },
+                                        analysisStatus.ifBlank { stringResource(R.string.cj_analyzing, selectedUris.size) },
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onPrimaryContainer
                                     )
@@ -231,7 +233,7 @@ fun CreateJobScreen(
                             // ── Fichiers sélectionnés : liste + bouton d'analyse ──
                             selectedUris.isNotEmpty() -> {
                                 Text(
-                                    "${selectedUris.size} fichier(s) sélectionné(s)",
+                                    stringResource(R.string.cj_files_selected, selectedUris.size),
                                     style = MaterialTheme.typography.labelMedium,
                                     fontWeight = FontWeight.Medium,
                                     color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -260,7 +262,7 @@ fun CreateJobScreen(
                                             onClick = { selectedUris = selectedUris.filterIndexed { i, _ -> i != index } },
                                             modifier = Modifier.size(24.dp)
                                         ) {
-                                            Icon(Icons.Default.Close, "Retirer", modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                                            Icon(Icons.Default.Close, stringResource(R.string.cj_remove), modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
                                         }
                                     }
                                 }
@@ -273,7 +275,7 @@ fun CreateJobScreen(
                                     ) {
                                         Icon(Icons.Default.Add, null, modifier = Modifier.size(18.dp))
                                         Spacer(Modifier.width(6.dp))
-                                        Text("Ajouter", style = MaterialTheme.typography.labelMedium)
+                                        Text(stringResource(R.string.common_add), style = MaterialTheme.typography.labelMedium)
                                     }
                                     Button(
                                         onClick = { runAnalysis() },
@@ -282,7 +284,7 @@ fun CreateJobScreen(
                                     ) {
                                         Icon(Icons.Default.AutoAwesome, null, modifier = Modifier.size(18.dp))
                                         Spacer(Modifier.width(6.dp))
-                                        Text("Analyser", style = MaterialTheme.typography.labelLarge)
+                                        Text(stringResource(R.string.cj_analyze), style = MaterialTheme.typography.labelLarge)
                                     }
                                 }
                             }
@@ -296,7 +298,7 @@ fun CreateJobScreen(
                                 ) {
                                     Icon(Icons.Default.DocumentScanner, null)
                                     Spacer(Modifier.width(8.dp))
-                                    Text("Importer images / PDF", style = MaterialTheme.typography.labelLarge)
+                                    Text(stringResource(R.string.cj_import_btn), style = MaterialTheme.typography.labelLarge)
                                 }
                             }
                         }
@@ -305,7 +307,7 @@ fun CreateJobScreen(
                 Spacer(Modifier.height(24.dp))
             }
 
-            FormSection("Informations générales")
+            FormSection(stringResource(R.string.cj_general_info))
             Spacer(Modifier.height(12.dp))
 
             if (isAddingToCompany) {
@@ -322,7 +324,7 @@ fun CreateJobScreen(
                         Icon(Icons.Default.Business, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer)
                         Spacer(Modifier.width(10.dp))
                         Column {
-                            Text("Contrat rattaché à", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f))
+                            Text(stringResource(R.string.cj_attached_to), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f))
                             Text(presetCompanyName!!, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondaryContainer)
                         }
                     }
@@ -335,7 +337,7 @@ fun CreateJobScreen(
                 OutlinedTextField(
                     value = companyNameInput,
                     onValueChange = { companyNameInput = it },
-                    label = { Text("Nom de l'entreprise") },
+                    label = { Text(stringResource(R.string.ma_company_name)) },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(14.dp)
                 )
@@ -345,8 +347,8 @@ fun CreateJobScreen(
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
-                label = { Text("Nom du poste / fonction") },
-                placeholder = { Text("Ex : Ouvrier agricole, Vendeur…") },
+                label = { Text(stringResource(R.string.cj_job_name)) },
+                placeholder = { Text(stringResource(R.string.cj_job_placeholder)) },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(14.dp)
             )
@@ -354,13 +356,13 @@ fun CreateJobScreen(
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedTextField(
                     value = rate, onValueChange = { rate = it },
-                    label = { Text("Taux brut (€/h)") },
+                    label = { Text(stringResource(R.string.cj_gross_rate)) },
                     modifier = Modifier.weight(1f), shape = RoundedCornerShape(14.dp),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
                 )
                 OutlinedTextField(
                     value = hours, onValueChange = { hours = it },
-                    label = { Text("H./semaine") },
+                    label = { Text(stringResource(R.string.cj_hours_week)) },
                     modifier = Modifier.weight(1f), shape = RoundedCornerShape(14.dp),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
@@ -370,7 +372,7 @@ fun CreateJobScreen(
                 OutlinedTextField(
                     value = startDate?.format(DateTimeFormatter.ofPattern("dd/MM/yy")) ?: "",
                     onValueChange = {},
-                    label = { Text("Début contrat") },
+                    label = { Text(stringResource(R.string.cj_start_contract)) },
                     readOnly = true, enabled = false,
                     modifier = Modifier.weight(1f).clickable { pickingStartDate = true },
                     shape = RoundedCornerShape(14.dp),
@@ -383,7 +385,7 @@ fun CreateJobScreen(
                 OutlinedTextField(
                     value = endDate?.format(DateTimeFormatter.ofPattern("dd/MM/yy")) ?: "",
                     onValueChange = {},
-                    label = { Text("Fin (optionnel)") },
+                    label = { Text(stringResource(R.string.cj_end_optional)) },
                     readOnly = true, enabled = false,
                     modifier = Modifier.weight(1f).clickable { pickingEndDate = true },
                     shape = RoundedCornerShape(14.dp),
@@ -396,17 +398,17 @@ fun CreateJobScreen(
             }
 
             Spacer(Modifier.height(24.dp))
-            FormSection("Type de contrat")
+            FormSection(stringResource(R.string.cj_contract_type))
             Spacer(Modifier.height(12.dp))
 
             // Type de contrat — chips horizontaux
             val contractTypes = listOf(
-                ContractType.CDI to "CDI",
-                ContractType.CDD to "CDD",
-                ContractType.INTERIM to "Intérim",
-                ContractType.MISSION to "Mission",
-                ContractType.ALTERNANCE to "Alternance",
-                ContractType.STAGE to "Stage"
+                ContractType.CDI to stringResource(R.string.ct_cdi),
+                ContractType.CDD to stringResource(R.string.ct_cdd),
+                ContractType.INTERIM to stringResource(R.string.ct_interim),
+                ContractType.MISSION to stringResource(R.string.ct_mission),
+                ContractType.ALTERNANCE to stringResource(R.string.ct_alternance),
+                ContractType.STAGE to stringResource(R.string.ct_stage)
             )
             androidx.compose.foundation.lazy.LazyRow(
                 horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
@@ -422,26 +424,26 @@ fun CreateJobScreen(
             }
 
             Spacer(Modifier.height(24.dp))
-            FormSection("Heures supplémentaires")
+            FormSection(stringResource(R.string.cj_overtime))
             Spacer(Modifier.height(12.dp))
 
             OutlinedTextField(
                 value = includedOvertimeHours, onValueChange = { includedOvertimeHours = it },
-                label = { Text("Heures sup. incluses par semaine") },
-                supportingText = { Text("Indiquez la différence (ex : 4 pour un contrat de 39h payé 35h + 4h sup)") },
+                label = { Text(stringResource(R.string.cj_included_ot)) },
+                supportingText = { Text(stringResource(R.string.cj_included_ot_hint)) },
                 modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
             )
             Spacer(Modifier.height(12.dp))
 
             if ((includedOvertimeHours.toDoubleOrNull() ?: 0.0) > 0.0) {
-                Text("Taux de majoration des heures incluses", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.cj_ot_rate), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(6.dp))
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    listOf(0.0 to "Taux normal (+0%)", 25.0 to "Majoré (+25%)").forEach { (valeur, label) ->
+                    listOf(0.0 to stringResource(R.string.cj_rate_normal), 25.0 to stringResource(R.string.cj_rate_plus25)).forEach { (valeur, label) ->
                         FilterChip(
                             selected = includedOvertimeRatePercent == valeur,
                             onClick = { includedOvertimeRatePercent = valeur },
@@ -455,7 +457,7 @@ fun CreateJobScreen(
 
             OutlinedTextField(
                 value = quota, onValueChange = { quota = it },
-                label = { Text("Contingent annuel (h)") },
+                label = { Text(stringResource(R.string.cj_annual_quota)) },
                 modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
             )
@@ -476,33 +478,33 @@ fun CreateJobScreen(
                 val overtimeOptions = listOf(
                     Triple(
                         OvertimeMode.PAYEE,
-                        "Toutes payées (majorées)",
-                        "Rémunération directe de toutes vos heures sup avec majorations légales (+25% de ${fmtBaseThreshold}h à ${fmtThreshold}h/sem, puis +50% au-delà)."
+                        stringResource(R.string.cj_ot_payee_t),
+                        stringResource(R.string.cj_ot_payee_d, fmtBaseThreshold, fmtThreshold)
                     ),
                     Triple(
                         OvertimeMode.CAPITALISEE,
-                        "Livret d'heures (Modulation)",
-                        "Les heures de ${fmtBaseThreshold}h à ${fmtThreshold}h sont créditées sur un livret d'heures pour être modulées/récupérées. Seules les heures au-delà de ${fmtThreshold}h sont payées."
+                        stringResource(R.string.cj_ot_cap_t),
+                        stringResource(R.string.cj_ot_cap_d, fmtBaseThreshold, fmtThreshold)
                     ),
                     Triple(
                         OvertimeMode.RECUPERATION,
-                        "Récupération (Repos compensateur)",
-                        "Toutes les heures supplémentaires donnent droit à un repos compensateur équivalent (récupération heure par heure sans paiement)."
+                        stringResource(R.string.cj_ot_recup_t),
+                        stringResource(R.string.cj_ot_recup_d)
                     ),
                     Triple(
                         OvertimeMode.CET,
-                        "Compte Épargne-Temps (CET)",
-                        "Vos heures supplémentaires (+25% de majoration de ${fmtBaseThreshold}h à ${fmtThreshold}h/sem) sont placées sur votre CET pour être payées ou prises en congés plus tard."
+                        stringResource(R.string.cj_ot_cet_t),
+                        stringResource(R.string.cj_ot_cet_d, fmtBaseThreshold, fmtThreshold)
                     ),
                     Triple(
                         OvertimeMode.MIXTE,
-                        "Mixte (Livret + Paiement)",
-                        "Les heures supplémentaires alimentent un livret d'heures jusqu'à un quota annuel prédéfini. Les heures au-delà sont payées."
+                        stringResource(R.string.cj_ot_mixte_t),
+                        stringResource(R.string.cj_ot_mixte_d)
                     ),
                     Triple(
                         OvertimeMode.FORFAIT_JOURS,
-                        "Forfait Jours (Cadres)",
-                        "Réservé aux salariés autonomes au forfait jours (~218j/an). Pas de décompte d'heures supplémentaires."
+                        stringResource(R.string.cj_ot_forfait_t),
+                        stringResource(R.string.cj_ot_forfait_d)
                     )
                 )
                 Column(modifier = Modifier.padding(4.dp)) {
@@ -525,7 +527,7 @@ fun CreateJobScreen(
 
             if (isEditing) {
                 Spacer(Modifier.height(20.dp))
-                FormSection("Statut du contrat")
+                FormSection(stringResource(R.string.cj_contract_status))
                 Spacer(Modifier.height(8.dp))
                 Card(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -539,8 +541,8 @@ fun CreateJobScreen(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("Archiver ce contrat", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                            Text("Le contrat apparaîtra dans l'historique passé", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(stringResource(R.string.cj_archive), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                            Text(stringResource(R.string.cj_archive_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Switch(
                             checked = isArchived,
@@ -557,8 +559,8 @@ fun CreateJobScreen(
                     val ioVal = includedOvertimeHours.toDoubleOrNull() ?: 0.0
                     val job = Job(
                         id = existingJob?.id ?: java.util.UUID.randomUUID().toString(),
-                        name = name.ifBlank { (if (isAddingToCompany) presetCompanyName else companyNameInput) ?: "Nouveau Job" },
-                        companyName = if (isAddingToCompany) presetCompanyName!! else companyNameInput.ifBlank { name.ifBlank { "Nouveau Job" } },
+                        name = name.ifBlank { (if (isAddingToCompany) presetCompanyName else companyNameInput) ?: context.getString(R.string.cj_new_job_fallback) },
+                        companyName = if (isAddingToCompany) presetCompanyName!! else companyNameInput.ifBlank { name.ifBlank { context.getString(R.string.cj_new_job_fallback) } },
                         companyId = presetCompanyId ?: existingJob?.companyId,
                         contractType = contractType,
                         hourlyRateBrut = rate.toDoubleOrNull() ?: 0.0,
@@ -590,7 +592,7 @@ fun CreateJobScreen(
                 Icon(Icons.Default.Save, null)
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    if (isEditing) "Enregistrer les modifications" else "Enregistrer le contrat",
+                    if (isEditing) stringResource(R.string.cj_save_changes) else stringResource(R.string.cj_save_contract),
                     style = MaterialTheme.typography.labelLarge
                 )
             }
@@ -605,7 +607,7 @@ fun CreateJobScreen(
                 ) {
                     Icon(Icons.Default.DeleteForever, null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("Supprimer ce contrat", fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.cj_delete_contract), fontWeight = FontWeight.SemiBold)
                 }
             }
             Spacer(Modifier.height(48.dp))
@@ -616,8 +618,8 @@ fun CreateJobScreen(
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
             icon = { Icon(Icons.Default.DeleteForever, null, tint = MaterialTheme.colorScheme.error) },
-            title = { Text("Supprimer ce contrat ?") },
-            text = { Text("Le contrat « ${existingJob.name} » et toutes ses journées, templates et bulletins seront définitivement supprimés.") },
+            title = { Text(stringResource(R.string.cj_delete_q)) },
+            text = { Text(stringResource(R.string.cj_delete_text, existingJob.name)) },
             confirmButton = {
                 Button(
                     onClick = {
@@ -629,9 +631,9 @@ fun CreateJobScreen(
                         containerColor = MaterialTheme.colorScheme.error,
                         contentColor = MaterialTheme.colorScheme.onError
                     )
-                ) { Text("Supprimer") }
+                ) { Text(stringResource(R.string.set_delete)) }
             },
-            dismissButton = { TextButton(onClick = { showDeleteConfirm = false }) { Text("Annuler") } }
+            dismissButton = { TextButton(onClick = { showDeleteConfirm = false }) { Text(stringResource(R.string.common_cancel)) } }
         )
     }
 }

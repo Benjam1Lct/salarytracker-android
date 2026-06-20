@@ -37,7 +37,18 @@ sealed interface PayslipAnalysis {
  * tableau `parts`, à côté du prompt. Gemini lie toutes les pages pour extraire
  * les paramètres du contrat (taux horaire, heures hebdo, règles du livret…).
  */
-class OcrService(private val context: Context, private val apiKey: String) {
+class OcrService(
+    private val context: Context,
+    private val apiKey: String,
+    /** Si vrai : passe par la Cloud Function sécurisée (abonnés) au lieu de la clé directe. */
+    private val useBackend: Boolean = false
+) {
+
+    /** Préfixe un message de statut par la source IA utilisée (Pro / clé perso). */
+    private fun tagged(msg: String): String {
+        val src = context.getString(if (useBackend) R.string.ai_source_pro else R.string.ai_source_key)
+        return context.getString(R.string.ai_source_fmt, src, msg)
+    }
 
     companion object {
         private val DAYS_IMPORT_PROMPT = """
@@ -151,9 +162,9 @@ class OcrService(private val context: Context, private val apiKey: String) {
         uris: List<Uri>,
         onStatus: (String) -> Unit = {}
     ): ContractAnalysis = withContext(Dispatchers.IO) {
-        if (uris.isEmpty()) return@withContext ContractAnalysis.Failure("Aucun fichier sélectionné")
-        if (apiKey.isBlank()) {
-            return@withContext ContractAnalysis.Failure("Veuillez renseigner votre clé API Gemini dans les Paramètres.")
+        if (uris.isEmpty()) return@withContext ContractAnalysis.Failure(context.getString(R.string.ocr_no_file))
+        if (!useBackend && apiKey.isBlank()) {
+            return@withContext ContractAnalysis.Failure(context.getString(R.string.ocr_gemini_key_needed))
         }
 
         try {
@@ -161,24 +172,24 @@ class OcrService(private val context: Context, private val apiKey: String) {
             parts.put(JSONObject().put("text", EXTRACTION_PROMPT))
 
             uris.forEachIndexed { index, uri ->
-                onStatus("Préparation du document ${index + 1}/${uris.size}…")
+                onStatus(tagged(context.getString(R.string.ocr_prep_doc, index + 1, uris.size)))
                 val attachment = buildAttachmentPart(uri) ?: return@forEachIndexed
                 parts.put(attachment)
             }
 
             // Aucune pièce valide récupérée
             if (parts.length() <= 1) {
-                return@withContext ContractAnalysis.Failure("Aucun document lisible (formats acceptés : images, PDF)")
+                return@withContext ContractAnalysis.Failure(context.getString(R.string.ocr_no_readable_doc))
             }
 
-            onStatus("Analyse de ${uris.size} document(s) par l'IA en cours…")
+            onStatus(tagged(context.getString(R.string.ocr_analyzing_ai, uris.size)))
             val responseJson = callGemini(parts) // lève une exception en cas d'erreur HTTP
             val job = parseJobFromResponse(responseJson)
-                ?: return@withContext ContractAnalysis.Failure("Réponse de l'IA illisible")
+                ?: return@withContext ContractAnalysis.Failure(context.getString(R.string.ocr_ai_unreadable))
             ContractAnalysis.Success(job)
         } catch (e: Exception) {
             Log.e(TAG, "extractMultiContractData failed", e)
-            ContractAnalysis.Failure(e.message ?: "Erreur réseau inconnue")
+            ContractAnalysis.Failure(e.message ?: context.getString(R.string.ocr_network_error))
         }
     }
 
@@ -187,28 +198,28 @@ class OcrService(private val context: Context, private val apiKey: String) {
         uris: List<Uri>,
         onStatus: (String) -> Unit = {}
     ): PayslipAnalysis = withContext(Dispatchers.IO) {
-        if (uris.isEmpty()) return@withContext PayslipAnalysis.Failure("Aucun fichier sélectionné")
-        if (apiKey.isBlank()) {
-            return@withContext PayslipAnalysis.Failure("Veuillez renseigner votre clé API Gemini dans les Paramètres.")
+        if (uris.isEmpty()) return@withContext PayslipAnalysis.Failure(context.getString(R.string.ocr_no_file))
+        if (!useBackend && apiKey.isBlank()) {
+            return@withContext PayslipAnalysis.Failure(context.getString(R.string.ocr_gemini_key_needed))
         }
         try {
             val parts = JSONArray()
             parts.put(JSONObject().put("text", PAYSLIP_PROMPT))
             uris.forEachIndexed { index, uri ->
-                onStatus("Préparation du document ${index + 1}/${uris.size}…")
+                onStatus(tagged(context.getString(R.string.ocr_prep_doc, index + 1, uris.size)))
                 buildAttachmentPart(uri)?.let { parts.put(it) }
             }
             if (parts.length() <= 1) {
-                return@withContext PayslipAnalysis.Failure("Aucun document lisible (images ou PDF)")
+                return@withContext PayslipAnalysis.Failure(context.getString(R.string.ocr_no_readable_doc))
             }
-            onStatus("Analyse du bulletin par l'IA…")
+            onStatus(tagged(context.getString(R.string.ocr_analyzing_payslip)))
             val responseJson = callGemini(parts)
             val payslip = parsePayslipFromResponse(responseJson)
-                ?: return@withContext PayslipAnalysis.Failure("Réponse de l'IA illisible")
+                ?: return@withContext PayslipAnalysis.Failure(context.getString(R.string.ocr_ai_unreadable))
             PayslipAnalysis.Success(payslip)
         } catch (e: Exception) {
             Log.e(TAG, "extractPayslipData failed", e)
-            PayslipAnalysis.Failure(e.message ?: "Erreur réseau inconnue")
+            PayslipAnalysis.Failure(e.message ?: context.getString(R.string.ocr_network_error))
         }
     }
 
@@ -304,6 +315,9 @@ class OcrService(private val context: Context, private val apiKey: String) {
 
     /** Effectue l'appel HTTP. Lève une exception explicite en cas d'erreur. */
     private fun callGemini(parts: JSONArray): String {
+        // Route abonné : la clé reste sur le serveur, l'app appelle la Cloud Function.
+        if (useBackend) return callBackend(parts)
+
         val body = JSONObject().apply {
             put("contents", JSONArray().put(JSONObject().put("parts", parts)))
             put("generationConfig", JSONObject().put("response_mime_type", "application/json"))
@@ -338,6 +352,29 @@ class OcrService(private val context: Context, private val apiKey: String) {
         } finally {
             conn.disconnect()
         }
+    }
+
+    /**
+     * Appel via la Cloud Function sécurisée `aiGenerate` (abonnés).
+     * Le serveur détient la clé Gemini, vérifie l'abonnement et le quota.
+     * On reconstruit l'enveloppe Gemini attendue par les parsers existants.
+     */
+    private fun callBackend(parts: JSONArray): String {
+        val contentsJson = JSONArray().put(JSONObject().put("parts", parts)).toString()
+        val functions = com.google.firebase.functions.FirebaseFunctions.getInstance("europe-west1")
+        val task = functions
+            .getHttpsCallable("aiGenerate")
+            .call(mapOf("contentsJson" to contentsJson))
+        val result = com.google.android.gms.tasks.Tasks.await(task)
+        @Suppress("UNCHECKED_CAST")
+        val data = result.data as? Map<String, Any?>
+        val text = data?.get("text") as? String ?: throw java.io.IOException("Réponse backend vide")
+        // Ré-emballe au format Gemini pour réutiliser parseJobFromResponse / parsePayslip…
+        return JSONObject()
+            .put("candidates", JSONArray().put(
+                JSONObject().put("content",
+                    JSONObject().put("parts", JSONArray().put(JSONObject().put("text", text))))
+            )).toString()
     }
 
     /**
@@ -422,10 +459,10 @@ class OcrService(private val context: Context, private val apiKey: String) {
         text: String,
         onStatus: (String) -> Unit = {}
     ): List<DayEntry> = withContext(Dispatchers.IO) {
-        if (apiKey.isBlank()) {
-            throw Exception("Veuillez renseigner votre clé API Gemini dans les Paramètres.")
+        if (!useBackend && apiKey.isBlank()) {
+            throw Exception(context.getString(R.string.ocr_gemini_key_needed))
         }
-        onStatus("Analyse de l'historique par l'IA...")
+        onStatus(tagged(context.getString(R.string.ocr_analyzing_history)))
 
         val parts = JSONArray()
         parts.put(JSONObject().put("text", DAYS_IMPORT_PROMPT))

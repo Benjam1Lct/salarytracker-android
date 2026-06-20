@@ -19,6 +19,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -36,13 +37,14 @@ fun HistoryScreen(
     job: Job,
     entries: List<DayEntry>,
     connectionStatus: ConnectionStatus,
+    isSubscribed: Boolean = false,
     onAddEntry: (LocalDate) -> Unit,
     onEditEntry: (DayEntry) -> Unit,
     onSettings: () -> Unit,
     onSelectJob: () -> Unit
 ) {
     var selectedMonth by remember { mutableStateOf(YearMonth.now()) }
-    val formatter = remember { DateTimeFormatter.ofPattern("MMMM yyyy", Locale.FRANCE) }
+    val formatter = remember { DateTimeFormatter.ofPattern("MMMM yyyy", Locale.getDefault()) }
 
     val monthEntries = remember(entries, selectedMonth) {
         entries.filter { YearMonth.from(it.date) == selectedMonth }.sortedByDescending { it.date }
@@ -78,10 +80,10 @@ fun HistoryScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("HISTORIQUE", color = InkMuted, fontSize = 11.sp, letterSpacing = 1.2.sp)
-                            Text("Calendrier & Liste", color = Ink, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.hist_header), color = InkMuted, fontSize = 11.sp, letterSpacing = 1.2.sp)
+                            Text(stringResource(R.string.hist_subtitle), color = Ink, fontSize = 24.sp, fontWeight = FontWeight.Bold)
                         }
-                        SquareIconButton(Icons.Default.Settings, onClick = onSettings, active = false)
+                        ProfileIconButton(isSubscribed = isSubscribed, onClick = onSettings)
                         Spacer(Modifier.width(10.dp))
                         SquareIconButton(Icons.Default.Work, onClick = onSelectJob, active = true)
                     }
@@ -117,7 +119,12 @@ fun HistoryScreen(
 
                         // Weekdays Header
                         Row(modifier = Modifier.fillMaxWidth()) {
-                            val headers = listOf("Lu", "Ma", "Me", "Je", "Ve", "Sa", "Di")
+                            val headers = listOf(
+                                stringResource(R.string.dash_wd_mon), stringResource(R.string.dash_wd_tue),
+                                stringResource(R.string.dash_wd_wed), stringResource(R.string.dash_wd_thu),
+                                stringResource(R.string.dash_wd_fri), stringResource(R.string.dash_wd_sat),
+                                stringResource(R.string.dash_wd_sun)
+                            )
                             headers.forEach { h ->
                                 Text(
                                     text = h,
@@ -196,7 +203,7 @@ fun HistoryScreen(
                                                 )
                                                 if (entry != null && !entry.isLeave) {
                                                     val hrs = entry.totalHours
-                                                    val hrsStr = if (hrs == hrs.toLong().toDouble()) "${hrs.toLong()}" else String.format(Locale.FRANCE, "%.1f", hrs)
+                                                    val hrsStr = if (hrs == hrs.toLong().toDouble()) "${hrs.toLong()}" else String.format(Locale.getDefault(), "%.1f", hrs)
                                                     // Heures + prix collés ensemble dans une sous-colonne sans espacement
                                                     Column(
                                                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -211,7 +218,7 @@ fun HistoryScreen(
                                                         )
                                                         val netDay = hrs * netPerHour
                                                         Text(
-                                                            text = String.format(Locale.FRANCE, "%.0f€", netDay),
+                                                            text = String.format(Locale.getDefault(), "%.0f€", netDay),
                                                             color = cellTextColor.copy(alpha = 0.6f),
                                                             fontSize = 8.sp,
                                                             maxLines = 1,
@@ -220,7 +227,7 @@ fun HistoryScreen(
                                                     }
                                                 } else if (entry != null && entry.isLeave) {
                                                     Text(
-                                                        text = "Congé",
+                                                        text = stringResource(R.string.common_leave),
                                                         color = cellTextColor.copy(alpha = 0.8f),
                                                         fontSize = 9.sp,
                                                         maxLines = 1
@@ -247,13 +254,13 @@ fun HistoryScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Saisies de ${selectedMonth.format(formatter).replaceFirstChar { it.lowercase() }}",
+                        text = stringResource(R.string.hist_entries_of, selectedMonth.format(formatter).replaceFirstChar { it.lowercase() }),
                         color = Ink,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "${monthEntries.size} jours",
+                        text = stringResource(R.string.hist_days_count, monthEntries.size),
                         color = InkMuted,
                         fontSize = 13.sp
                     )
@@ -278,21 +285,21 @@ fun HistoryScreen(
                             )
                             Spacer(Modifier.height(12.dp))
                             Text(
-                                text = "Aucune saisie ce mois-ci",
+                                text = stringResource(R.string.hist_no_entries),
                                 color = Ink,
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold
                             )
                             Spacer(Modifier.height(6.dp))
                             Text(
-                                text = "Touchez un jour sur le calendrier ci-dessus ou cliquez ci-dessous pour enregistrer vos heures.",
+                                text = stringResource(R.string.hist_no_entries_hint),
                                 color = InkMuted,
                                 fontSize = 13.sp,
                                 textAlign = TextAlign.Center
                             )
                             Spacer(Modifier.height(20.dp))
                             AppButton(
-                                text = "AJOUTER UNE HEURE",
+                                text = stringResource(R.string.hist_add_hour),
                                 onClick = { onAddEntry(selectedMonth.atDay(1)) },
                                 leading = Icons.Default.Add,
                                 modifier = Modifier.fillMaxWidth()

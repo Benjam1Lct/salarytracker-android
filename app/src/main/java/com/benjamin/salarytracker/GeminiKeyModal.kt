@@ -14,6 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
@@ -75,13 +76,13 @@ fun GeminiKeyModal(
                     Spacer(Modifier.width(14.dp))
                     Column {
                         Text(
-                            "Intelligence Artificielle",
+                            stringResource(R.string.set_ai),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.primary,
                             letterSpacing = 0.8.sp
                         )
                         Text(
-                            "Clé API requise",
+                            stringResource(R.string.gk_key_required),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
@@ -92,8 +93,7 @@ fun GeminiKeyModal(
                 Spacer(Modifier.height(16.dp))
 
                 Text(
-                    "Pour utiliser l'analyse IA (OCR de contrats et fiches de paie), " +
-                    "une clé Gemini est nécessaire. Elle reste confidentielle et stockée uniquement sur votre compte.",
+                    stringResource(R.string.gk_desc),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -109,7 +109,7 @@ fun GeminiKeyModal(
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            "Option 1 — Clé API Gemini",
+                            stringResource(R.string.gk_option1),
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -119,7 +119,7 @@ fun GeminiKeyModal(
 
                         val uriHandler = LocalUriHandler.current
                         Text(
-                            "Obtenir une clé gratuite sur Google AI Studio ↗",
+                            stringResource(R.string.gk_get_free_key),
                             color = MaterialTheme.colorScheme.primary,
                             style = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.SemiBold,
@@ -136,7 +136,7 @@ fun GeminiKeyModal(
                         OutlinedTextField(
                             value = apiKeyInput,
                             onValueChange = { apiKeyInput = it },
-                            label = { Text("Clé API Gemini") },
+                            label = { Text(stringResource(R.string.set_gemini_key)) },
                             placeholder = { Text("AIzaSy…") },
                             singleLine = true,
                             visualTransformation = PasswordVisualTransformation(),
@@ -161,7 +161,7 @@ fun GeminiKeyModal(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp)
                         ) {
-                            Text("Enregistrer et utiliser Gemini", fontWeight = FontWeight.SemiBold)
+                            Text(stringResource(R.string.gk_save_use), fontWeight = FontWeight.SemiBold)
                         }
                     }
                 }
@@ -185,7 +185,7 @@ fun GeminiKeyModal(
                             )
                             Spacer(Modifier.width(8.dp))
                             Text(
-                                "Option 2 — IA locale (on-device)",
+                                stringResource(R.string.gk_option2),
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSecondaryContainer
@@ -195,8 +195,7 @@ fun GeminiKeyModal(
                         Spacer(Modifier.height(6.dp))
 
                         Text(
-                            "Utilise ML Kit (intégré à l'app) pour l'OCR et une analyse par règles intelligentes. " +
-                            "Moins précis que Gemini, mais 100% hors-ligne et gratuit.",
+                            stringResource(R.string.gk_local_desc),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
                         )
@@ -211,7 +210,7 @@ fun GeminiKeyModal(
                                 contentColor = MaterialTheme.colorScheme.secondary
                             )
                         ) {
-                            Text("Utiliser l'IA locale", fontWeight = FontWeight.SemiBold)
+                            Text(stringResource(R.string.gk_use_local), fontWeight = FontWeight.SemiBold)
                         }
                     }
                 }
@@ -223,7 +222,7 @@ fun GeminiKeyModal(
                     onClick = onDismiss,
                     modifier = Modifier.align(Alignment.CenterHorizontally)
                 ) {
-                    Text("Annuler", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(R.string.common_cancel), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
@@ -240,11 +239,10 @@ fun GeminiKeyModal(
                     tint = MaterialTheme.colorScheme.secondary
                 )
             },
-            title = { Text("Confirmer l'IA locale ?") },
+            title = { Text(stringResource(R.string.gk_confirm_local_q)) },
             text = {
                 Text(
-                    "L'analyse locale est moins précise que Gemini (pas de compréhension du langage naturel). " +
-                    "Tu pourras toujours configurer une clé Gemini plus tard dans les Paramètres.",
+                    stringResource(R.string.gk_confirm_local_text),
                     textAlign = TextAlign.Center
                 )
             },
@@ -255,12 +253,12 @@ fun GeminiKeyModal(
                         onUseLocalAi()
                     }
                 ) {
-                    Text("Confirmer — IA locale")
+                    Text(stringResource(R.string.gk_confirm_local))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showLocalAiConfirm = false }) {
-                    Text("Retour")
+                    Text(stringResource(R.string.common_back))
                 }
             }
         )

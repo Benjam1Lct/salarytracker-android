@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -165,7 +166,7 @@ fun LoginScreen(
                             ) {
                                 Image(
                                     painter = painterResource(id = R.drawable.ic_launcher_foreground),
-                                    contentDescription = "Logo de l'application",
+                                    contentDescription = stringResource(R.string.login_logo_cd),
                                     modifier = Modifier.size(100.dp)
                                 )
                             }
@@ -183,7 +184,7 @@ fun LoginScreen(
                         Spacer(modifier = Modifier.height(8.dp))
 
                         Text(
-                            text = "Gérez vos heures de travail, simulez vos salaires et optimisez votre livret d'heures en un clin d'œil.",
+                            text = stringResource(R.string.login_tagline),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center,
@@ -220,7 +221,7 @@ fun LoginScreen(
                                 }
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Text(
-                                    text = "Continuer avec Google",
+                                    text = stringResource(R.string.login_google),
                                     fontSize = 16.sp,
                                     fontWeight = FontWeight.SemiBold
                                 )
@@ -246,7 +247,7 @@ fun LoginScreen(
                         ) {
                             HorizontalDivider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.outlineVariant)
                             Text(
-                                " ou ",
+                                stringResource(R.string.login_or),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(horizontal = 8.dp)
@@ -262,7 +263,7 @@ fun LoginScreen(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
-                                text = "Compte local (données sur cet appareil)",
+                                text = stringResource(R.string.login_local_account),
                                 color = MaterialTheme.colorScheme.primary,
                                 fontWeight = FontWeight.Medium
                             )
@@ -276,7 +277,7 @@ fun LoginScreen(
                             Icon(Icons.Default.Download, null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             Spacer(Modifier.width(8.dp))
                             Text(
-                                text = "Importer des données",
+                                text = stringResource(R.string.login_import_data),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontWeight = FontWeight.Medium
                             )
@@ -300,13 +301,13 @@ fun LoginScreen(
                         modifier = Modifier.size(28.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Compte local")
+                    Text(stringResource(R.string.login_local_title))
                 }
             },
             text = {
                 Column {
                     Text(
-                        "Saisissez un nom de profil. Toutes vos données resteront stockées uniquement sur cet appareil (aucune synchronisation cloud).",
+                        stringResource(R.string.login_local_desc),
                         fontSize = 13.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -314,8 +315,8 @@ fun LoginScreen(
                     OutlinedTextField(
                         value = mockName,
                         onValueChange = { mockName = it },
-                        label = { Text("Nom du profil") },
-                        placeholder = { Text("Ex: Lucas, Hugo, Benjamin...") },
+                        label = { Text(stringResource(R.string.login_profile_name)) },
+                        placeholder = { Text(stringResource(R.string.login_profile_placeholder)) },
                         singleLine = true,
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth()
@@ -332,12 +333,12 @@ fun LoginScreen(
                     },
                     enabled = mockName.isNotBlank()
                 ) {
-                    Text("Se connecter")
+                    Text(stringResource(R.string.login_signin))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showMockDialog = false }) {
-                    Text("Annuler")
+                    Text(stringResource(R.string.common_cancel))
                 }
             }
         )
@@ -401,14 +402,14 @@ fun ConnectingStateView() {
         }
         Spacer(Modifier.height(32.dp))
         Text(
-            text = "Connexion en cours...",
+            text = stringResource(R.string.login_connecting),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onBackground
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            text = "Veuillez patienter pendant l'authentification sécurisée",
+            text = stringResource(R.string.login_connecting_desc),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -452,21 +453,21 @@ fun SuccessStateView() {
         ) {
             Icon(
                 imageVector = Icons.Default.CheckCircle,
-                contentDescription = "Succès",
+                contentDescription = stringResource(R.string.login_success_cd),
                 tint = Color(0xFF10B981),
                 modifier = Modifier.size(64.dp)
             )
         }
         Spacer(Modifier.height(32.dp))
         Text(
-            text = "Connexion réussie !",
+            text = stringResource(R.string.login_success),
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
             color = Color(0xFF047857)
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            text = "Préparation de votre livret d'heures...",
+            text = stringResource(R.string.login_preparing),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -490,43 +491,43 @@ fun OnboardingScreen(
     val slides = listOf(
         OnboardingSlideData(
             icon = Icons.Default.WavingHand,
-            title = "Bienvenue sur SalaryTracker 👋",
-            description = "Calculez vos salaires nets, suivez vos heures supplémentaires et gérez vos plannings au quotidien sans effort."
+            title = stringResource(R.string.ob_t1),
+            description = stringResource(R.string.ob_d1)
         ),
         OnboardingSlideData(
             icon = Icons.Default.Business,
-            title = "Ajouter une entreprise 🏢",
-            description = "Créez vos emplois (CDI, CDD, intérim, mission…) en quelques secondes. Importez votre contrat par IA pour tout remplir automatiquement.",
+            title = stringResource(R.string.ob_t2),
+            description = stringResource(R.string.ob_d2),
             accentColor = Color(0xFF3B82F6)
         ),
         OnboardingSlideData(
             icon = Icons.Default.Add,
-            title = "Saisir vos journées 📅",
-            description = "Appuyez sur + dans le tableau de bord ou le calendrier pour enregistrer vos heures. Choisissez un template ou saisissez manuellement.",
+            title = stringResource(R.string.ob_t3),
+            description = stringResource(R.string.ob_d3),
             accentColor = Color(0xFF10B981)
         ),
         OnboardingSlideData(
             icon = Icons.Default.Schedule,
-            title = "Créer des templates ⏱️",
-            description = "Définissez vos horaires types (matin, journée, nuit…) pour saisir une journée en un seul tap. Personnalisez les pauses.",
+            title = stringResource(R.string.ob_t4),
+            description = stringResource(R.string.ob_d4),
             accentColor = Color(0xFFF59E0B)
         ),
         OnboardingSlideData(
             icon = Icons.Default.AutoAwesome,
-            title = "Saisie automatique ⚡",
-            description = "Configurez des règles pour remplir automatiquement votre livret d'heures chaque jour. L'app rattrape les journées manquées à chaque ouverture.",
+            title = stringResource(R.string.ob_t5),
+            description = stringResource(R.string.ob_d5),
             accentColor = Color(0xFF8B7CF6)
         ),
         OnboardingSlideData(
             icon = Icons.Default.BarChart,
-            title = "Analyser vos statistiques 📊",
-            description = "Suivez vos gains nets, comparez avec vos fiches de paie importées et détectez les écarts. L'IA analyse vos bulletins automatiquement.",
+            title = stringResource(R.string.ob_t6),
+            description = stringResource(R.string.ob_d6),
             accentColor = Color(0xFFEC4899)
         ),
         OnboardingSlideData(
             icon = Icons.Default.PlayArrow,
-            title = "C'est parti ! 🚀",
-            description = "Vous êtes prêt(e) à commencer. Créez votre premier emploi et commencez à suivre vos heures dès maintenant."
+            title = stringResource(R.string.ob_t7),
+            description = stringResource(R.string.ob_d7)
         )
     )
 
@@ -604,7 +605,7 @@ fun OnboardingScreen(
             ) {
                 if (pagerState.currentPage < slidesCount - 1) {
                     TextButton(onClick = onFinish) {
-                        Text("Passer", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.ob_skip), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Button(
                         onClick = {
@@ -614,7 +615,7 @@ fun OnboardingScreen(
                         },
                         shape = RoundedCornerShape(14.dp)
                     ) {
-                        Text("Suivant")
+                        Text(stringResource(R.string.ob_next))
                         Spacer(Modifier.width(4.dp))
                         Icon(Icons.Default.NavigateNext, null)
                     }
@@ -628,7 +629,7 @@ fun OnboardingScreen(
                         shape = RoundedCornerShape(16.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                     ) {
-                        Text("Commencer !", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Text(stringResource(R.string.ob_start), fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     }
                 }
             }
@@ -694,6 +695,9 @@ private fun EmailPasswordLoginSection(
     var isSignUpMode by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var loading by remember { mutableStateOf(false) }
+    val genericError = stringResource(R.string.set_generic_error)
+    val errSignup = stringResource(R.string.login_err_signup)
+    val errSignin = stringResource(R.string.login_err_signin)
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -720,7 +724,7 @@ private fun EmailPasswordLoginSection(
                     )
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        text = "Connexion par e-mail & mot de passe",
+                        text = stringResource(R.string.login_email_section),
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.onSurface
@@ -751,7 +755,7 @@ private fun EmailPasswordLoginSection(
                 OutlinedTextField(
                     value = email,
                     onValueChange = { email = it; errorMessage = null },
-                    label = { Text("Adresse e-mail") },
+                    label = { Text(stringResource(R.string.set_email_addr)) },
                     placeholder = { Text("exemple@mail.com") },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Email),
@@ -764,7 +768,7 @@ private fun EmailPasswordLoginSection(
                 OutlinedTextField(
                     value = password,
                     onValueChange = { password = it; errorMessage = null },
-                    label = { Text("Mot de passe") },
+                    label = { Text(stringResource(R.string.set_password)) },
                     placeholder = { Text("••••••••") },
                     singleLine = true,
                     visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
@@ -784,7 +788,7 @@ private fun EmailPasswordLoginSection(
                         CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                         Spacer(Modifier.width(12.dp))
                         Text(
-                            text = if (isSignUpMode) "Création du compte…" else "Connexion…",
+                            text = if (isSignUpMode) stringResource(R.string.login_creating) else stringResource(R.string.login_signing),
                             style = MaterialTheme.typography.bodySmall
                         )
                     }
@@ -799,7 +803,7 @@ private fun EmailPasswordLoginSection(
                                 modifier = Modifier.weight(1f),
                                 shape = RoundedCornerShape(12.dp)
                             ) {
-                                Text("J'ai un compte")
+                                Text(stringResource(R.string.login_have_account))
                             }
                             Button(
                                 onClick = {
@@ -808,18 +812,18 @@ private fun EmailPasswordLoginSection(
                                         onSignUp(email.trim(), password) { success, err ->
                                             loading = false
                                             if (!success) {
-                                                errorMessage = err ?: "Une erreur est survenue."
+                                                errorMessage = err ?: genericError
                                             }
                                         }
                                     } else {
-                                        errorMessage = "Veuillez entrer un e-mail valide et un mot de passe de 6 caractères min."
+                                        errorMessage = errSignup
                                     }
                                 },
                                 modifier = Modifier.weight(1.5f),
                                 shape = RoundedCornerShape(12.dp),
                                 enabled = email.isNotBlank() && password.isNotBlank()
                             ) {
-                                Text("S'inscrire", fontWeight = FontWeight.SemiBold)
+                                Text(stringResource(R.string.login_signup), fontWeight = FontWeight.SemiBold)
                             }
                         } else {
                             OutlinedButton(
@@ -827,7 +831,7 @@ private fun EmailPasswordLoginSection(
                                 modifier = Modifier.weight(1.2f),
                                 shape = RoundedCornerShape(12.dp)
                             ) {
-                                Text("Créer compte")
+                                Text(stringResource(R.string.login_create_account))
                             }
                             Button(
                                 onClick = {
@@ -836,18 +840,18 @@ private fun EmailPasswordLoginSection(
                                         onSignIn(email.trim(), password) { success, err ->
                                             loading = false
                                             if (!success) {
-                                                errorMessage = err ?: "Une erreur est survenue."
+                                                errorMessage = err ?: genericError
                                             }
                                         }
                                     } else {
-                                        errorMessage = "Veuillez entrer un e-mail et un mot de passe valides."
+                                        errorMessage = errSignin
                                     }
                                 },
                                 modifier = Modifier.weight(1.5f),
                                 shape = RoundedCornerShape(12.dp),
                                 enabled = email.isNotBlank() && password.isNotBlank()
                             ) {
-                                Text("Se connecter", fontWeight = FontWeight.SemiBold)
+                                Text(stringResource(R.string.login_signin), fontWeight = FontWeight.SemiBold)
                             }
                         }
                     }

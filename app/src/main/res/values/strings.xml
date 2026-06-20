@@ -1,3 +1,548 @@
 <resources>
     <string name="app_name">SalaryTracker</string>
+
+    <!-- Navigation -->
+    <string name="nav_home">Home</string>
+    <string name="nav_history">History</string>
+    <string name="nav_auto">Auto</string>
+    <string name="nav_hours">Hours</string>
+    <string name="nav_salary">Salary</string>
+
+    <!-- Connection / sync tag -->
+    <string name="status_online">Online</string>
+    <string name="status_connecting">Connecting…</string>
+    <string name="status_unstable">Unstable</string>
+    <string name="status_offline">Offline</string>
+    <string name="local_ok">Local: OK</string>
+    <string name="local_none">Local: None</string>
+    <string name="sync_title">Synchronisation</string>
+    <string name="sync_close">Close</string>
+    <string name="sync_network_status">Network status</string>
+    <string name="sync_account">Account</string>
+    <string name="sync_account_local">Local account</string>
+    <string name="sync_local_file">Local file</string>
+    <string name="sync_file_saved">Saved (%1$s)</string>
+    <string name="sync_file_not_saved">Not saved</string>
+    <string name="sync_last_save">Last save</string>
+    <string name="sync_none">None</string>
+    <string name="sync_save">Save</string>
+    <string name="sync_reconnect">Reconnect</string>
+    <string name="sync_saved_toast">Data saved locally ✓</string>
+    <string name="sync_save_failed_toast">Local save failed (network error)</string>
+    <string name="sync_reconnect_toast">Trying to reconnect…</string>
+
+    <!-- Common -->
+    <string name="common_cancel">Cancel</string>
+    <string name="common_confirm">Confirm</string>
+    <string name="common_today">Today</string>
+    <string name="common_leave">Leave</string>
+    <string name="common_sure">Sure?</string>
+    <string name="common_no">No</string>
+    <string name="common_close">Close</string>
+
+    <!-- Dashboard -->
+    <string name="dash_target_reached">Goal reached this month! 🎉</string>
+    <string name="dash_no_daily_rate">No daily rate. Can\'t project.</string>
+    <string name="dash_set_hourly">Set an hourly wage to estimate the projection.</string>
+    <string name="dash_target_estimated_on">Goal estimated on: %1$s</string>
+    <string name="dash_unreachable_contract">⚠️ Not reachable before the contract ends (%1$s)!</string>
+    <string name="dash_unreachable_month">⚠️ Not reachable this month. Log more hours!</string>
+    <string name="dash_goal_overview">GOAL OVERVIEW</string>
+    <string name="dash_earned">Earned</string>
+    <string name="dash_remaining">Remaining</string>
+    <string name="dash_goal">Goal</string>
+    <string name="dash_base_gross">Base gross</string>
+    <string name="dash_hours_bank">Hours bank</string>
+    <string name="dash_history">History</string>
+    <string name="dash_list">List</string>
+    <string name="dash_calendar">Calendar</string>
+    <string name="dash_see_all">See all</string>
+    <string name="dash_no_entries">No days yet. Tap + to start.</string>
+    <string name="dash_job">JOB</string>
+    <string name="dash_contract">CONTRACT</string>
+    <string name="dash_days_left">days left</string>
+    <string name="dash_contract_progress">Contract time progression (elapsed time)</string>
+    <string name="dash_days_elapsed">Days elapsed</string>
+    <string name="dash_weeks">Weeks</string>
+    <string name="dash_hours_label">Hours</string>
+    <string name="dash_add_day">ADD A DAY</string>
+    <string name="dash_monthly_goal">Monthly goal</string>
+    <string name="dash_amount">Amount (€)</string>
+    <string name="dash_my_day">MY DAY</string>
+    <string name="dash_recorded">Recorded</string>
+    <string name="dash_start_day">Start day</string>
+    <string name="dash_plus_gross">+%1$s gross</string>
+    <string name="dash_plus_net">+%1$s net</string>
+    <string name="dash_finish">Finish</string>
+    <string name="dash_break">BREAK</string>
+    <string name="dash_break_label">Break</string>
+    <string name="dash_break_active">Break active…</string>
+    <string name="dash_break_cumulated">Total: %1$dm</string>
+    <string name="dash_start_break">Start break</string>
+    <string name="dash_break_taken">Already taken: %1$dm</string>
+    <string name="dash_resume">Resume</string>
+    <string name="dash_take_break">Take a break</string>
+    <string name="dash_imported">%1$d day(s) imported ✓</string>
+    <string name="dash_wd_mon">Mo</string>
+    <string name="dash_wd_tue">Tu</string>
+    <string name="dash_wd_wed">We</string>
+    <string name="dash_wd_thu">Th</string>
+    <string name="dash_wd_fri">Fr</string>
+    <string name="dash_wd_sat">Sa</string>
+    <string name="dash_wd_sun">Su</string>
+
+    <!-- Stats -->
+    <string name="stats_analytics">ANALYTICS</string>
+    <string name="stats_title_hours">Hours stats</string>
+    <string name="stats_title_salary">Salary stats</string>
+    <string name="stats_bank_hours">HOURS BANK &amp; HOURS</string>
+    <string name="stats_total_real_hours">Total actual hours</string>
+    <string name="stats_peak">Peak</string>
+    <string name="stats_bank_balance">Bank balance</string>
+    <string name="stats_contract_income">CONTRACT INCOME</string>
+    <string name="stats_est_net_total">Estimated total net</string>
+    <string name="stats_gross_month">Gross /month</string>
+    <string name="stats_bank_end">Bank at end</string>
+    <string name="stats_hours_per_month">Hours per month</string>
+    <string name="stats_net_per_month">Net per month</string>
+    <string name="stats_not_enough_data">Not enough data yet</string>
+    <string name="stats_weekly_detail">Weekly breakdown</string>
+    <string name="stats_days">Days</string>
+    <string name="stats_avg_week">Avg/week</string>
+    <string name="stats_payslips">Payslips</string>
+    <string name="stats_export_csv">Export as CSV</string>
+    <string name="stats_import">Import Excel/CSV/Text/Image</string>
+    <string name="stats_import_success">Import successful: %1$d days added/updated.</string>
+    <string name="stats_in_progress">ONGOING</string>
+    <string name="stats_peak_week">Peak week</string>
+    <string name="stats_ot_to_bank">Overtime → bank</string>
+    <string name="stats_remaining_to_reach">%1$s more to reach %2$s</string>
+    <string name="stats_under_uses_bank">Below %1$s → draws %2$s from bank</string>
+    <string name="stats_standard">Standard</string>
+    <string name="stats_plus_bank">+%1$s bank</string>
+    <string name="stats_plus_peak">+%1$s peak</string>
+    <string name="stats_minus_remaining">-%1$s remaining</string>
+
+    <!-- History -->
+    <string name="hist_header">HISTORY</string>
+    <string name="hist_subtitle">Calendar &amp; List</string>
+    <string name="hist_entries_of">Entries for %1$s</string>
+    <string name="hist_days_count">%1$d days</string>
+    <string name="hist_no_entries">No entries this month</string>
+    <string name="hist_no_entries_hint">Tap a day on the calendar above or tap below to log your hours.</string>
+    <string name="hist_add_hour">ADD AN ENTRY</string>
+
+    <!-- Entry row -->
+    <string name="entry_leave_absence">Leave / absence</string>
+    <string name="entry_time_pause">%1$s – %2$s (break %3$d min)</string>
+    <string name="entry_time">%1$s – %2$s</string>
+
+    <!-- Add / edit day -->
+    <string name="add_edit">EDIT</string>
+    <string name="add_save">LOG</string>
+    <string name="add_day_title">Day</string>
+    <string name="add_new_day">New day</string>
+    <string name="add_import_success">Import successful: %1$d days added.</string>
+    <string name="add_import_btn">Import history (CSV/Text/Image)</string>
+    <string name="add_date_label">Day date</string>
+    <string name="add_pick_date">Pick a date</string>
+    <string name="add_day_type">Day type</string>
+    <string name="add_worked">Worked</string>
+    <string name="add_quick_templates">Quick templates</string>
+    <string name="add_schedule">Schedule</string>
+    <string name="add_start">Start</string>
+    <string name="add_end">End</string>
+    <string name="add_breaks">Breaks</string>
+    <string name="add_leave_info">Non-working day: it won\'t be counted as a deficit in the hours bank.</string>
+    <string name="add_end_after_start">End time must be after start time</string>
+    <string name="add_update">Update</string>
+    <string name="add_validate">Save day</string>
+    <string name="add_delete_day">Delete this day</string>
+    <string name="add_manage_templates">Manage my templates</string>
+
+    <!-- Modals / sheets -->
+    <string name="common_add">Add</string>
+    <string name="modal_register_day">Log a day</string>
+    <string name="modal_save_day">Save day</string>
+    <string name="modal_manage_templates">Manage templates</string>
+    <string name="modal_new_template">New template</string>
+    <string name="modal_template_name">Template name (e.g. Morning)</string>
+    <string name="modal_save_template">Save template</string>
+    <string name="modal_min">Min.</string>
+    <string name="modal_pause_min">%1$dmin</string>
+    <string name="gauge_edit_goal">Edit goal</string>
+    <string name="common_ok">OK</string>
+    <string name="common_edit">Edit</string>
+    <string name="comp_pick_time">Pick a time</string>
+    <string name="comp_main_job">Main job</string>
+    <string name="comp_no_templates">No templates available.</string>
+    <string name="comp_create_template">Create a template</string>
+
+    <!-- Settings -->
+    <string name="set_prefs_header">PREFERENCES</string>
+    <string name="set_title">Settings</string>
+    <string name="set_profile_account">Profile &amp; Account</string>
+    <string name="set_logout">Log out</string>
+    <string name="set_delete_account">Delete my account</string>
+    <string name="set_delete_confirm_title">Delete permanently?</string>
+    <string name="set_delete_confirm_text">All your data (jobs, days, templates, payslips) and your account will be permanently deleted. This action is irreversible.</string>
+    <string name="set_delete">Delete</string>
+    <string name="set_data">Data</string>
+    <string name="set_delete_all_days">Delete all days</string>
+    <string name="set_delete_all_days_desc">Erases all recorded days (all contracts) and resets the hours bank to zero. Contracts and companies are kept.</string>
+    <string name="set_delete_all_days_q">Delete all days?</string>
+    <string name="set_delete_all_days_confirm">All recorded days will be permanently deleted and the hours bank reset. This action is irreversible.</string>
+    <string name="set_delete_all">Delete all</string>
+    <string name="set_login_methods">Sign-in methods</string>
+    <string name="set_ai">Artificial Intelligence</string>
+    <string name="set_gemini_key">Gemini API key</string>
+    <string name="set_gemini_desc">To import your free notes and handwritten time sheets with AI, enter your own Gemini API key. It stays private and stored on your account.</string>
+    <string name="set_get_api_key">Get an API key on Google AI Studio ↗</string>
+    <string name="set_key_saved">Key saved!</string>
+    <string name="set_save_key">Save key</string>
+    <string name="set_delete_key">Delete key</string>
+    <string name="set_notifications">Notifications</string>
+    <string name="set_daily_reminder">Daily entry reminder</string>
+    <string name="set_daily_reminder_desc">Get a reminder at the end of the day if no hours have been logged today.</string>
+    <string name="set_notif_time">Notification time</string>
+    <string name="set_language">Language</string>
+    <string name="set_lang_system">System</string>
+    <string name="set_lang_fr">Français</string>
+    <string name="set_lang_en">English</string>
+    <string name="set_appearance">Appearance</string>
+    <string name="set_accent_color">Accent color</string>
+    <string name="set_theme_purple">Purple</string>
+    <string name="set_theme_blue">Blue</string>
+    <string name="set_theme_green">Green</string>
+    <string name="set_theme_orange">Orange</string>
+    <string name="set_theme_red">Red</string>
+    <string name="set_theme_pink">Pink</string>
+    <string name="set_change_icon_q">Change icon?</string>
+    <string name="set_change_icon_text">The app will close to update the icon on your home screen.</string>
+    <string name="set_link_desc">Link several methods to your account to sign in different ways.</string>
+    <string name="set_linked">Linked</string>
+    <string name="set_unlink">Unlink</string>
+    <string name="set_link">Link</string>
+    <string name="set_link_email_title">Link an e-mail</string>
+    <string name="set_email_addr">E-mail address</string>
+    <string name="set_password">Password</string>
+    <string name="set_linking">Linking…</string>
+    <string name="set_generic_error">An error occurred.</string>
+
+    <!-- Contract types -->
+    <string name="ct_cdi">Permanent</string>
+    <string name="ct_cdd">Fixed-term</string>
+    <string name="ct_interim">Temp</string>
+    <string name="ct_mission">Mission</string>
+    <string name="ct_alternance">Apprenticeship</string>
+    <string name="ct_stage">Internship</string>
+
+    <!-- Job selection -->
+    <string name="js_my_jobs">MY JOBS</string>
+    <string name="js_selection">Selection</string>
+    <string name="js_no_company">No company</string>
+    <string name="js_create_company_hint">Create a company to get started.</string>
+    <string name="js_new_company">New company</string>
+    <string name="js_hide_archives">Hide archives (%1$d)</string>
+    <string name="js_show_archives">View archives (%1$d)</string>
+    <string name="js_archived">Past / Archived contracts</string>
+    <string name="js_contracts_count">%1$d contract(s)</string>
+    <string name="js_no_contract">No contract — add one below.</string>
+    <string name="js_add_contract">Add a contract</string>
+    <string name="js_delete_company">Delete company</string>
+    <string name="js_delete_company_q">Delete company?</string>
+    <string name="js_delete_company_text">"%1$s" and its %2$d contract(s) (with days, templates, payslips) will be permanently deleted.</string>
+    <string name="js_date_range">From %1$s to %2$s</string>
+    <string name="js_date_from">From %1$s</string>
+    <string name="js_date_until">Until %1$s</string>
+    <string name="js_rate_hours">%1$s €/h · %2$s h/wk</string>
+    <string name="js_contract_detail">%1$s · %2$s €/h · %3$s h/wk</string>
+
+    <!-- Common 2 -->
+    <string name="common_back">Back</string>
+
+    <!-- Gemini key modal -->
+    <string name="gk_key_required">API key required</string>
+    <string name="gk_desc">To use AI analysis (OCR of contracts and payslips), a Gemini key is required. It stays private and stored only on your account.</string>
+    <string name="gk_option1">Option 1 — Gemini API key</string>
+    <string name="gk_get_free_key">Get a free key on Google AI Studio ↗</string>
+    <string name="gk_save_use">Save and use Gemini</string>
+    <string name="gk_option2">Option 2 — Local AI (on-device)</string>
+    <string name="gk_local_desc">Uses ML Kit (built into the app) for OCR and a smart rule-based analysis. Less accurate than Gemini, but 100% offline and free.</string>
+    <string name="gk_use_local">Use local AI</string>
+    <string name="gk_confirm_local_q">Confirm local AI?</string>
+    <string name="gk_confirm_local_text">Local analysis is less accurate than Gemini (no natural language understanding). You can always set a Gemini key later in Settings.</string>
+    <string name="gk_confirm_local">Confirm — local AI</string>
+
+    <!-- Update required -->
+    <string name="upd_title">Update required</string>
+    <string name="upd_desc">This version of SalaryTracker is no longer supported. Download the latest version to keep using the app.</string>
+    <string name="upd_download_version">Download the version</string>
+    <string name="upd_warning_cd">Warning</string>
+    <string name="upd_backup_required">Warning: backup required</string>
+    <string name="upd_local_backup_desc">You are using a local account. Back up your data now so you can re-import it after the update.</string>
+    <string name="upd_download_data">Download my data</string>
+
+    <!-- Manage templates -->
+    <string name="mt_templates_header">TEMPLATES</string>
+    <string name="mt_my_schedules">MY SCHEDULES</string>
+    <string name="mt_editing">Editing</string>
+    <string name="mt_templates_title">Templates</string>
+    <string name="mt_retrieved">%1$d templates retrieved!</string>
+    <string name="mt_none_found">No new template found in history.</string>
+    <string name="mt_retrieve">Retrieve from history</string>
+    <string name="mt_empty">No template saved.\nTap + to create one.</string>
+    <string name="mt_pause_min">%1$dmin break</string>
+    <string name="mt_template_name">Template name</string>
+
+    <!-- Auto entry -->
+    <string name="ae_header">AUTOMATION</string>
+    <string name="ae_title">Auto entry</string>
+    <string name="ae_active_rules">Active rules</string>
+    <string name="ae_no_active">No active rule for now.</string>
+    <string name="ae_add_rule">Add a rule</string>
+    <string name="ae_new_rule">New rule</string>
+    <string name="ae_rule_fallback">Rule</string>
+    <string name="ae_since">Since %1$s</string>
+    <string name="ae_period">%1$s → %2$s</string>
+    <string name="ae_source">Source</string>
+    <string name="ae_template">Template</string>
+    <string name="ae_custom_day">Custom day</string>
+    <string name="ae_pause_min">Break (min)</string>
+    <string name="ae_recurrence">Recurrence</string>
+    <string name="ae_endless">Endless</string>
+    <string name="ae_period_opt">Period</string>
+    <string name="ae_workdays">Workdays</string>
+    <string name="ae_activate">Activate</string>
+    <string name="ae_pick_template">Pick a template</string>
+    <string name="ae_end_after_start">End must be after start</string>
+    <string name="ae_pick_day">Select at least one day</string>
+    <string name="ae_custom_name">Custom day (%1$s–%2$s)</string>
+    <string name="ae_activated">Auto entry enabled ✓</string>
+    <string-array name="weekday_letters">
+        <item>M</item><item>T</item><item>W</item><item>T</item><item>F</item><item>S</item><item>S</item>
+    </string-array>
+
+    <!-- Login -->
+    <string name="login_logo_cd">App logo</string>
+    <string name="login_tagline">Track your work hours, simulate your wages and optimize your hours bank at a glance.</string>
+    <string name="login_google">Continue with Google</string>
+    <string name="login_or"> or </string>
+    <string name="login_local_account">Local account (data on this device)</string>
+    <string name="login_import_data">Import data</string>
+    <string name="login_local_title">Local account</string>
+    <string name="login_local_desc">Enter a profile name. All your data will stay stored only on this device (no cloud sync).</string>
+    <string name="login_profile_name">Profile name</string>
+    <string name="login_profile_placeholder">E.g. Lucas, Hugo, Benjamin…</string>
+    <string name="login_signin">Sign in</string>
+    <string name="login_connecting">Connecting…</string>
+    <string name="login_connecting_desc">Please wait during secure authentication</string>
+    <string name="login_success_cd">Success</string>
+    <string name="login_success">Signed in!</string>
+    <string name="login_preparing">Preparing your hours bank…</string>
+    <string name="login_email_section">Sign in with e-mail &amp; password</string>
+    <string name="login_creating">Creating account…</string>
+    <string name="login_signing">Signing in…</string>
+    <string name="login_have_account">I have an account</string>
+    <string name="login_signup">Sign up</string>
+    <string name="login_create_account">Create account</string>
+    <string name="login_err_signup">Please enter a valid e-mail and a password of at least 6 characters.</string>
+    <string name="login_err_signin">Please enter a valid e-mail and password.</string>
+
+    <!-- Onboarding -->
+    <string name="ob_skip">Skip</string>
+    <string name="ob_next">Next</string>
+    <string name="ob_start">Get started!</string>
+    <string name="ob_t1">Welcome to SalaryTracker 👋</string>
+    <string name="ob_d1">Calculate your net wages, track your overtime and manage your schedules daily, effortlessly.</string>
+    <string name="ob_t2">Add a company 🏢</string>
+    <string name="ob_d2">Create your jobs (permanent, fixed-term, temp, mission…) in seconds. Import your contract with AI to fill everything automatically.</string>
+    <string name="ob_t3">Log your days 📅</string>
+    <string name="ob_d3">Tap + on the dashboard or calendar to record your hours. Pick a template or enter them manually.</string>
+    <string name="ob_t4">Create templates ⏱️</string>
+    <string name="ob_d4">Set your typical schedules (morning, day, night…) to log a day in one tap. Customize breaks.</string>
+    <string name="ob_t5">Auto entry ⚡</string>
+    <string name="ob_d5">Set up rules to fill your hours bank automatically every day. The app catches up missed days each time you open it.</string>
+    <string name="ob_t6">Analyze your stats 📊</string>
+    <string name="ob_d6">Track your net earnings, compare with your imported payslips and spot discrepancies. AI analyzes your payslips automatically.</string>
+    <string name="ob_t7">Let\'s go! 🚀</string>
+    <string name="ob_d7">You\'re ready to start. Create your first job and begin tracking your hours right now.</string>
+
+    <!-- ViewModel / import -->
+    <string name="vm_no_user">No user signed in.</string>
+    <string name="vm_no_job">No job selected for import.</string>
+    <string name="vm_reading_doc">Reading the document…</string>
+    <string name="vm_reading_image">Reading the image (OCR)…</string>
+    <string name="vm_no_text_image">No readable text in the image.</string>
+    <string name="vm_file_empty">The file is empty.</string>
+    <string name="vm_analyzing">Analyzing days…</string>
+    <string name="vm_no_days_extracted">No workday could be extracted from this file.</string>
+    <string name="vm_saving">Saving…</string>
+    <string name="vm_import_error">Import error: %1$s</string>
+
+    <!-- MainActivity -->
+    <string name="ma_data_saved">Data saved ✓</string>
+    <string name="ma_save_failed">Save failed</string>
+    <string name="ma_data_imported">Data imported ✓</string>
+    <string name="ma_invalid_backup">Invalid backup file</string>
+    <string name="ma_perm_denied">Permission denied: reminders won\'t show.</string>
+    <string name="ma_google_linked">Google account linked ✓</string>
+    <string name="ma_google_link_failed">Google linking failed.</string>
+    <string name="ma_google_token_missing">Missing Google token.</string>
+    <string name="ma_google_user">Google user</string>
+    <string name="ma_days_deleted">%1$d day(s) deleted</string>
+    <string name="ma_email_linked">E-mail linked ✓</string>
+    <string name="ma_unlinked">Method unlinked ✓</string>
+    <string name="ma_unlink_failed">Unlinking failed.</string>
+    <string name="ma_company_name">Company name</string>
+    <string name="ma_create_base_contract">Create a base contract now</string>
+    <string name="ma_create">Create</string>
+    <string name="ma_new_company">New company</string>
+    <string name="ma_google_err_generic">An error occurred during Google authentication.</string>
+    <string name="ma_google_err_unexpected">An unexpected error occurred.</string>
+    <string name="ma_google_err_context">Unable to access the activity context.</string>
+    <string name="ma_google_err_init">Unable to initialize the Google Sign-In module.</string>
+    <string name="ma_context_unavailable">Activity context unavailable.</string>
+    <string name="ma_google_error_toast">Google error: %1$s</string>
+    <string name="ma_google_problem">Google sign-in problem</string>
+    <string name="ma_google_failed_code">Live Google sign-in failed (Code: %1$s).</string>
+    <string name="ma_firebase_fix">To fix this in Firebase:</string>
+    <string name="ma_sha1_label">2. SHA-1 fingerprint:</string>
+    <string name="ma_copy_sha1">Copy SHA-1</string>
+    <string name="ma_sha1_copied">SHA-1 copied!</string>
+
+    <!-- Payslips -->
+    <string name="ps_added">Payslip added ✓</string>
+    <string name="ps_failed">Failed: %1$s</string>
+    <string name="ps_header">PAYSLIPS</string>
+    <string name="ps_subtitle">Estimated vs Actual</string>
+    <string name="ps_analyzing">Analyzing…</string>
+    <string name="ps_import">Import a payslip</string>
+    <string name="ps_none">No payslip</string>
+    <string name="ps_none_hint">Import a photo or PDF of your payslip to compare it with the estimate.</string>
+    <string name="ps_count">%1$d payslip(s)</string>
+    <string name="ps_real_net">Actual net %1$s</string>
+    <string name="ps_estimated_app">Estimated (App)</string>
+    <string name="ps_real_slip">Actual (Payslip)</string>
+    <string name="ps_gap_plus">Gap +</string>
+    <string name="ps_gap">Gap</string>
+    <string name="ps_detailed">DETAILED COMPARISON</string>
+    <string name="ps_hours_worked">Hours worked</string>
+    <string name="ps_gross">Gross pay</string>
+    <string name="ps_net">Net pay</string>
+    <string name="ps_underpay">Potential underpayment of %1$s on this payslip.</string>
+    <string name="ps_compliant">Payslip compliant or above estimates ✓</string>
+    <string name="ps_tap_details">Tap to see details ▾</string>
+    <string name="ps_compliant_short">Compliant</string>
+    <string name="ps_app_val">App: %1$s</string>
+    <string name="ps_real_val">Actual: %1$s</string>
+
+    <!-- Create / edit job -->
+    <string name="cj_preparing">Preparing documents…</string>
+    <string name="cj_analysis_done">Analysis complete ✓</string>
+    <string name="cj_edit_header">EDIT</string>
+    <string name="cj_new_header">NEW CONTRACT</string>
+    <string name="cj_setup">Setup</string>
+    <string name="cj_auto_analysis">Automatic analysis (AI)</string>
+    <string name="cj_import_hint">Import several images and/or PDFs of your contract. All pages will be analyzed together.</string>
+    <string name="cj_analyzing">Preparing and analyzing %1$d document(s)…</string>
+    <string name="cj_files_selected">%1$d file(s) selected</string>
+    <string name="cj_remove">Remove</string>
+    <string name="cj_analyze">Analyze</string>
+    <string name="cj_import_btn">Import images / PDF</string>
+    <string name="cj_general_info">General information</string>
+    <string name="cj_attached_to">Contract attached to</string>
+    <string name="cj_job_name">Job title / role</string>
+    <string name="cj_job_placeholder">E.g. Farm worker, Salesperson…</string>
+    <string name="cj_gross_rate">Gross rate (€/h)</string>
+    <string name="cj_hours_week">H./week</string>
+    <string name="cj_start_contract">Contract start</string>
+    <string name="cj_end_optional">End (optional)</string>
+    <string name="cj_contract_type">Contract type</string>
+    <string name="cj_overtime">Overtime</string>
+    <string name="cj_included_ot">Included overtime per week</string>
+    <string name="cj_included_ot_hint">Enter the difference (e.g. 4 for a 39h contract paid 35h + 4h overtime)</string>
+    <string name="cj_ot_rate">Rate for included overtime</string>
+    <string name="cj_rate_normal">Normal rate (+0%)</string>
+    <string name="cj_rate_plus25">Increased (+25%)</string>
+    <string name="cj_annual_quota">Annual quota (h)</string>
+    <string name="cj_contract_status">Contract status</string>
+    <string name="cj_archive">Archive this contract</string>
+    <string name="cj_archive_desc">The contract will appear in past history</string>
+    <string name="cj_new_job_fallback">New job</string>
+    <string name="cj_save_changes">Save changes</string>
+    <string name="cj_save_contract">Save contract</string>
+    <string name="cj_delete_contract">Delete this contract</string>
+    <string name="cj_delete_q">Delete this contract?</string>
+    <string name="cj_delete_text">The contract "%1$s" and all its days, templates and payslips will be permanently deleted.</string>
+    <string name="cj_ot_payee_t">All paid (increased)</string>
+    <string name="cj_ot_payee_d">Direct pay for all your overtime with legal increases (+25%% from %1$sh to %2$sh/wk, then +50%% beyond).</string>
+    <string name="cj_ot_cap_t">Hours bank (Annualization)</string>
+    <string name="cj_ot_cap_d">Hours from %1$sh to %2$sh are credited to an hours bank to be modulated/recovered. Only hours beyond %2$sh are paid.</string>
+    <string name="cj_ot_recup_t">Time off in lieu</string>
+    <string name="cj_ot_recup_d">All overtime gives entitlement to equivalent compensatory rest (hour-for-hour recovery without pay).</string>
+    <string name="cj_ot_cet_t">Time savings account (CET)</string>
+    <string name="cj_ot_cet_d">Your overtime (+25%% increase from %1$sh to %2$sh/wk) is placed on your CET to be paid or taken as leave later.</string>
+    <string name="cj_ot_mixte_t">Mixed (Bank + Pay)</string>
+    <string name="cj_ot_mixte_d">Overtime feeds an hours bank up to a predefined annual quota. Hours beyond that are paid.</string>
+    <string name="cj_ot_forfait_t">Day rate (Executives)</string>
+    <string name="cj_ot_forfait_d">Reserved for autonomous day-rate employees (~218 days/yr). No overtime count.</string>
+
+    <!-- Notifications -->
+    <string name="notif_channel_name">Hours reminders</string>
+    <string name="notif_channel_desc">Daily hours entry reminders</string>
+    <string name="notif_title">Log your hours ⏰</string>
+    <string name="notif_text">Don\'t forget to log your worked hours today!</string>
+
+    <!-- Export -->
+    <string name="export_chooser">Export days</string>
+    <string name="export_subject">Days – %1$s</string>
+    <string name="export_failed">Export failed: %1$s</string>
+
+    <!-- OCR / analysis errors -->
+    <string name="ocr_no_file">No file selected</string>
+    <string name="ocr_no_text">No readable text in the documents</string>
+    <string name="ocr_local_error">Local analysis error</string>
+    <string name="ocr_no_payslip_data">Unable to extract data from the payslip</string>
+    <string name="ocr_gemini_key_needed">Please set your Gemini API key in Settings.</string>
+    <string name="ocr_prep_doc">Preparing document %1$d/%2$d…</string>
+    <string name="ocr_no_readable_doc">No readable document (accepted: images, PDF)</string>
+    <string name="ocr_analyzing_ai">Analyzing %1$d document(s) with AI…</string>
+    <string name="ocr_ai_unreadable">AI response unreadable</string>
+    <string name="ocr_analyzing_payslip">Analyzing the payslip with AI…</string>
+    <string name="ocr_analyzing_history">Analyzing history with AI…</string>
+    <string name="ocr_reading_doc">Reading document %1$d/%2$d…</string>
+    <string name="ocr_local_contract">Local contract analysis…</string>
+    <string name="ocr_local_payslip">Local payslip analysis…</string>
+    <string name="ocr_local_history">Local history analysis…</string>
+    <string name="ocr_network_error">Unknown network error</string>
+    <string name="ai_source_pro">Pro AI</string>
+    <string name="ai_source_key">AI (own key)</string>
+    <string name="ai_source_local">Local AI</string>
+    <string name="ai_source_fmt">%1$s · %2$s</string>
+
+    <!-- Google error codes -->
+    <string name="ma_err_dev">DEVELOPER_ERROR: Your app\'s SHA-1 fingerprint is probably not registered in the Firebase console, or the google-services.json config is incomplete.</string>
+    <string name="ma_err_signin">SIGN_IN_FAILED: Sign-in failed. Check Google Play services on your device.</string>
+    <string name="ma_err_network">NETWORK_ERROR: Network error. Check your Internet connection.</string>
+
+    <!-- Subscription / Pro -->
+    <string name="sub_header">SALARYTRACKER</string>
+    <string name="sub_title">Go Pro</string>
+    <string name="sub_subtitle">Turnkey AI, no setup required.</string>
+    <string name="sub_feature_1">AI analysis of contracts &amp; payslips</string>
+    <string name="sub_feature_2">Import time sheets from photo / PDF</string>
+    <string name="sub_feature_3">No API key to configure</string>
+    <string name="sub_feature_4">Generous AI quota included</string>
+    <string name="sub_cta">Subscribe</string>
+    <string name="sub_cta_price">Subscribe — %1$s</string>
+    <string name="sub_active">You\'re Pro ✓</string>
+    <string name="sub_active_desc">Thank you! You enjoy all AI features, turnkey.</string>
+    <string name="sub_manage">Manage subscription</string>
+    <string name="sub_legal">Subscription renews automatically. Cancel anytime in Google Play.</string>
+    <string name="sub_settings_entry">SalaryTracker Pro</string>
+    <string name="sub_settings_entry_desc">Turnkey AI without an API key</string>
+    <string name="sub_quota_title">AI usage</string>
+    <string name="sub_quota_today">Today: %1$d/%2$d</string>
+    <string name="sub_quota_month">This month: %1$d/%2$d</string>
 </resources>

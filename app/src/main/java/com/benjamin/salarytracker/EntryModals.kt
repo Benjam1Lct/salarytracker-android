@@ -16,6 +16,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -49,7 +50,7 @@ fun RegisterDaySheet(
                 .padding(horizontal = 20.dp)
         ) {
             Text(
-                text = "Enregistrer une journée",
+                text = stringResource(R.string.modal_register_day),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold
             )
@@ -61,7 +62,7 @@ fun RegisterDaySheet(
             )
             Spacer(modifier = Modifier.height(20.dp))
 
-            SheetSectionLabel("Templates rapides")
+            SheetSectionLabel(stringResource(R.string.add_quick_templates))
             TemplateChips(
                 templates = job.dayTemplates,
                 selectedTemplate = selectedTemplate,
@@ -75,18 +76,18 @@ fun RegisterDaySheet(
             )
 
             Spacer(modifier = Modifier.height(20.dp))
-            SheetSectionLabel("Horaires")
+            SheetSectionLabel(stringResource(R.string.add_schedule))
             Spacer(modifier = Modifier.height(8.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                TimePickerField(label = "Début", time = startTime, onTimeChange = { startTime = it }, modifier = Modifier.weight(1f))
-                TimePickerField(label = "Fin", time = endTime, onTimeChange = { endTime = it }, modifier = Modifier.weight(1f))
+                TimePickerField(label = stringResource(R.string.add_start), time = startTime, onTimeChange = { startTime = it }, modifier = Modifier.weight(1f))
+                TimePickerField(label = stringResource(R.string.add_end), time = endTime, onTimeChange = { endTime = it }, modifier = Modifier.weight(1f))
             }
 
             Spacer(modifier = Modifier.height(20.dp))
-            SheetSectionLabel("Pauses")
+            SheetSectionLabel(stringResource(R.string.add_breaks))
             Spacer(modifier = Modifier.height(8.dp))
             PauseManager(pauseBlocks)
 
@@ -108,7 +109,7 @@ fun RegisterDaySheet(
                     .height(52.dp),
                 shape = RoundedCornerShape(14.dp)
             ) {
-                Text("Enregistrer la journée", style = MaterialTheme.typography.labelLarge)
+                Text(stringResource(R.string.modal_save_day), style = MaterialTheme.typography.labelLarge)
             }
 
             TextButton(
@@ -116,7 +117,7 @@ fun RegisterDaySheet(
                 modifier = Modifier.align(Alignment.CenterHorizontally)
             ) {
                 Text(
-                    "Gérer les templates",
+                    stringResource(R.string.modal_manage_templates),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary
                 )
@@ -155,7 +156,7 @@ fun CreateTemplateSheet(
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
                 }
                 Text(
-                    "Nouveau Template",
+                    stringResource(R.string.modal_new_template),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold
                 )
@@ -165,24 +166,24 @@ fun CreateTemplateSheet(
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
-                label = { Text("Nom du template (ex: Matin)") },
+                label = { Text(stringResource(R.string.modal_template_name)) },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(14.dp)
             )
 
             Spacer(modifier = Modifier.height(16.dp))
-            SheetSectionLabel("Horaires")
+            SheetSectionLabel(stringResource(R.string.add_schedule))
             Spacer(modifier = Modifier.height(8.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                TimePickerField(label = "Début", time = startTime, onTimeChange = { startTime = it }, modifier = Modifier.weight(1f))
-                TimePickerField(label = "Fin", time = endTime, onTimeChange = { endTime = it }, modifier = Modifier.weight(1f))
+                TimePickerField(label = stringResource(R.string.add_start), time = startTime, onTimeChange = { startTime = it }, modifier = Modifier.weight(1f))
+                TimePickerField(label = stringResource(R.string.add_end), time = endTime, onTimeChange = { endTime = it }, modifier = Modifier.weight(1f))
             }
 
             Spacer(modifier = Modifier.height(16.dp))
-            SheetSectionLabel("Pauses")
+            SheetSectionLabel(stringResource(R.string.add_breaks))
             Spacer(modifier = Modifier.height(8.dp))
             PauseManager(pauseBlocks)
 
@@ -207,7 +208,7 @@ fun CreateTemplateSheet(
                 shape = RoundedCornerShape(14.dp),
                 enabled = name.isNotBlank()
             ) {
-                Text("Sauvegarder le template", style = MaterialTheme.typography.labelLarge)
+                Text(stringResource(R.string.modal_save_template), style = MaterialTheme.typography.labelLarge)
             }
             Spacer(modifier = Modifier.height(32.dp))
         }
@@ -236,7 +237,7 @@ fun PauseManager(pauseBlocks: MutableList<Long>) {
             OutlinedTextField(
                 value = newPauseStr,
                 onValueChange = { if (it.length <= 3) newPauseStr = it },
-                label = { Text("Min.") },
+                label = { Text(stringResource(R.string.modal_min)) },
                 modifier = Modifier.width(110.dp),
                 shape = RoundedCornerShape(14.dp),
                 keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
@@ -258,7 +259,7 @@ fun PauseManager(pauseBlocks: MutableList<Long>) {
             ) {
                 Icon(
                     Icons.Default.Add,
-                    contentDescription = "Ajouter",
+                    contentDescription = stringResource(R.string.common_add),
                     tint = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             }
@@ -272,7 +273,7 @@ fun PauseManager(pauseBlocks: MutableList<Long>) {
                 pauseBlocks.forEachIndexed { index, minutes ->
                     AssistChip(
                         onClick = { pauseBlocks.removeAt(index) },
-                        label = { Text("${minutes}min") },
+                        label = { Text(stringResource(R.string.modal_pause_min, minutes)) },
                         trailingIcon = {
                             Icon(
                                 Icons.Default.Delete,

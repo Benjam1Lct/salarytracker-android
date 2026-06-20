@@ -23,6 +23,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -44,6 +45,7 @@ fun StatsScreen(
     entries: List<DayEntry>,
     mode: String = "salary",       // "salary" | "hours"
     connectionStatus: ConnectionStatus,
+    isSubscribed: Boolean = false,
     isRefreshing: Boolean = false,
     onRefresh: () -> Unit = {},
     onOpenPayslips: () -> Unit = {},
@@ -72,7 +74,7 @@ fun StatsScreen(
         val entriesUpToM = entries.filter { !it.date.isAfter(m.atEndOfMonth()) }
         SalaryCalculator.calculateTotalLivretFromEntries(job, entriesUpToM).toFloat()
     }
-    val monthLabels = months.map { it.month.getDisplayName(TextStyle.SHORT, Locale.FRANCE).replaceFirstChar { c -> c.uppercase() } }
+    val monthLabels = months.map { it.month.getDisplayName(TextStyle.SHORT, Locale.getDefault()).replaceFirstChar { c -> c.uppercase() } }
 
     Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).statusBarsPadding()) {
         LazyColumn(
@@ -91,10 +93,10 @@ fun StatsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("ANALYSES", color = InkMuted, fontSize = 11.sp, letterSpacing = 1.2.sp)
-                            Text(if (isHours) "Stats horaires" else "Stats salaire", color = Ink, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.stats_analytics), color = InkMuted, fontSize = 11.sp, letterSpacing = 1.2.sp)
+                            Text(if (isHours) stringResource(R.string.stats_title_hours) else stringResource(R.string.stats_title_salary), color = Ink, fontSize = 24.sp, fontWeight = FontWeight.Bold)
                         }
-                        SquareIconButton(Icons.Default.Settings, onClick = onSettings, active = false)
+                        ProfileIconButton(isSubscribed = isSubscribed, onClick = onSettings)
                         Spacer(Modifier.width(10.dp))
                         SquareIconButton(Icons.Default.Work, onClick = onSelectJob, active = true)
                     }
@@ -106,22 +108,22 @@ fun StatsScreen(
                 Appear(0) {
                     if (isHours) {
                         FunStatCard(
-                            title = "LIVRET & HEURES",
+                            title = stringResource(R.string.stats_bank_hours),
                             bigValue = fmtHours(contrat.totalHeuresReelles),
-                            bigLabel = "Total des heures réelles",
+                            bigLabel = stringResource(R.string.stats_total_real_hours),
                             metrics = listOf(
-                                StatMetric(MaterialTheme.colorScheme.primary, "Crête", fmtHours(stats.creteRealHoursMois), serCrete),
-                                StatMetric(PosGreen, "Solde livret", fmtHours(stats.soldeLivretTotal), serSoldeLivret)
+                                StatMetric(MaterialTheme.colorScheme.primary, stringResource(R.string.stats_peak), fmtHours(stats.creteRealHoursMois), serCrete),
+                                StatMetric(PosGreen, stringResource(R.string.stats_bank_balance), fmtHours(stats.soldeLivretTotal), serSoldeLivret)
                             )
                         )
                     } else {
                         FunStatCard(
-                            title = "REVENUS CONTRAT",
+                            title = stringResource(R.string.stats_contract_income),
                             bigValue = euroS(contrat.netTotal),
-                            bigLabel = "Net total estimé",
+                            bigLabel = stringResource(R.string.stats_est_net_total),
                             metrics = listOf(
-                                StatMetric(MaterialTheme.colorScheme.primary, "Brut /mois", euroS(stats.salaireBrutBase + stats.salaireBrutHeuresSupPayees), serBrut),
-                                StatMetric(PosGreen, "Livret fin", euroS(contrat.livretValeurNet), serLivretVal)
+                                StatMetric(MaterialTheme.colorScheme.primary, stringResource(R.string.stats_gross_month), euroS(stats.salaireBrutBase + stats.salaireBrutHeuresSupPayees), serBrut),
+                                StatMetric(PosGreen, stringResource(R.string.stats_bank_end), euroS(contrat.livretValeurNet), serLivretVal)
                             )
                         )
                     }
@@ -132,7 +134,7 @@ fun StatsScreen(
             item {
                 Appear(100) {
                     AppCard {
-                        Text(if (isHours) "Heures par mois" else "Net par mois", color = Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                        Text(if (isHours) stringResource(R.string.stats_hours_per_month) else stringResource(R.string.stats_net_per_month), color = Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
                         Spacer(Modifier.height(14.dp))
                         if (monthValues.count { it > 0 } >= 2) {
                             AreaChart(monthValues, modifier = Modifier.fillMaxWidth().height(150.dp))
@@ -142,7 +144,7 @@ fun StatsScreen(
                             }
                         } else {
                             Box(Modifier.fillMaxWidth().height(100.dp), contentAlignment = Alignment.Center) {
-                                Text("Pas encore assez de données", color = InkMuted, fontSize = 13.sp)
+                                Text(stringResource(R.string.stats_not_enough_data), color = InkMuted, fontSize = 13.sp)
                             }
                         }
                     }
@@ -151,7 +153,7 @@ fun StatsScreen(
 
             // ── Détail par semaine (mode heures) ──
             if (isHours && stats.weeklyDetails.isNotEmpty()) {
-                item { Text("Détail par semaine", color = Ink, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp)) }
+                item { Text(stringResource(R.string.stats_weekly_detail), color = Ink, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp)) }
                 items(stats.weeklyDetails) { w -> Appear(0) { WeekCard(w) } }
             }
 
@@ -160,9 +162,9 @@ fun StatsScreen(
                 item {
                     Appear(200) {
                         Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                            MiniStat("Jours", "${contrat.joursTravailles}", Modifier.weight(1f))
-                            MiniStat("Semaines", "${contrat.semainesTravaillees}", Modifier.weight(1f))
-                            MiniStat("Moy./sem", fmtHours(contrat.moyenneHeuresParSemaine), Modifier.weight(1f))
+                            MiniStat(stringResource(R.string.stats_days), "${contrat.joursTravailles}", Modifier.weight(1f))
+                            MiniStat(stringResource(R.string.dash_weeks), "${contrat.semainesTravaillees}", Modifier.weight(1f))
+                            MiniStat(stringResource(R.string.stats_avg_week), fmtHours(contrat.moyenneHeuresParSemaine), Modifier.weight(1f))
                         }
                     }
                 }
@@ -173,7 +175,7 @@ fun StatsScreen(
                 item {
                     Appear(250) {
                         AppButton(
-                            text = "Bulletins de salaire",
+                            text = stringResource(R.string.stats_payslips),
                             onClick = onOpenPayslips,
                             leading = Icons.Default.Description,
                             modifier = Modifier.fillMaxWidth()
@@ -189,7 +191,7 @@ fun StatsScreen(
 
                     LaunchedEffect(showImportSuccessToast) {
                         showImportSuccessToast?.let { count ->
-                            Toast.makeText(ctx, "Import réussi : $count journées ajoutées/mises à jour.", Toast.LENGTH_LONG).show()
+                            Toast.makeText(ctx, ctx.getString(R.string.stats_import_success, count), Toast.LENGTH_LONG).show()
                             showImportSuccessToast = null
                         }
                     }
@@ -215,14 +217,14 @@ fun StatsScreen(
 
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         AppButton(
-                            text = "Exporter en CSV",
+                            text = stringResource(R.string.stats_export_csv),
                             onClick = { ExportService.exportCsv(ctx, job, entries) },
                             leading = Icons.Default.IosShare,
                             filled = false,
                             modifier = Modifier.fillMaxWidth()
                         )
                         AppButton(
-                            text = "Importer Excel/CSV/Texte/Image",
+                            text = stringResource(R.string.stats_import),
                             onClick = { launcher.launch("*/*") },
                             leading = Icons.Default.ArrowUpward,
                             filled = false,
@@ -333,7 +335,7 @@ private fun WeekCard(w: SalaryCalculator.WeekStats) {
                     Text(w.weekKey, color = Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                     if (w.isCurrentWeek) {
                         Text(
-                            "EN COURS",
+                            stringResource(R.string.stats_in_progress),
                             color = MaterialTheme.colorScheme.primary,
                             fontSize = 9.sp,
                             fontWeight = FontWeight.Bold,
@@ -347,26 +349,26 @@ private fun WeekCard(w: SalaryCalculator.WeekStats) {
                     }
                 }
                 val (tag, tagColor) = when {
-                    w.isCreteWeek                  -> "Semaine crête" to InkMuted
-                    w.isOvertime                   -> "Heures sup → livret" to InkMuted
+                    w.isCreteWeek                  -> stringResource(R.string.stats_peak_week) to InkMuted
+                    w.isOvertime                   -> stringResource(R.string.stats_ot_to_bank) to InkMuted
                     w.isCurrentWeek && w.realHours < w.expectedHours -> {
                         val remaining = w.expectedHours - w.realHours
-                        "Encore ${fmtHours(remaining)} pour atteindre ${fmtHours(w.expectedHours)}" to InkMuted
+                        stringResource(R.string.stats_remaining_to_reach, fmtHours(remaining), fmtHours(w.expectedHours)) to InkMuted
                     }
-                    w.isUnderWeek                  -> "Sous ${fmtHours(w.expectedHours)} → puise ${fmtHours(w.deficitHours)} du livret" to NegRed
-                    else                           -> "Standard" to InkMuted
+                    w.isUnderWeek                  -> stringResource(R.string.stats_under_uses_bank, fmtHours(w.expectedHours), fmtHours(w.deficitHours)) to NegRed
+                    else                           -> stringResource(R.string.stats_standard) to InkMuted
                 }
                 Text(tag, color = tagColor, fontSize = 12.sp)
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text(fmtHours(w.realHours), color = Ink, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 if (w.livretCreditEquivalent > 0)
-                    Text("+${fmtHours(w.livretCreditEquivalent)} livret", color = MaterialTheme.colorScheme.primary, fontSize = 11.sp)
+                    Text(stringResource(R.string.stats_plus_bank, fmtHours(w.livretCreditEquivalent)), color = MaterialTheme.colorScheme.primary, fontSize = 11.sp)
                 if (w.creteRealHours > 0)
-                    Text("+${fmtHours(w.creteRealHours)} crête", color = MaterialTheme.colorScheme.secondary, fontSize = 11.sp)
+                    Text(stringResource(R.string.stats_plus_peak, fmtHours(w.creteRealHours)), color = MaterialTheme.colorScheme.secondary, fontSize = 11.sp)
                 if (w.isCurrentWeek && w.realHours < w.expectedHours) {
                     val remaining = w.expectedHours - w.realHours
-                    Text("-${fmtHours(remaining)} restantes", color = InkMuted, fontSize = 11.sp)
+                    Text(stringResource(R.string.stats_minus_remaining, fmtHours(remaining)), color = InkMuted, fontSize = 11.sp)
                 }
             }
         }

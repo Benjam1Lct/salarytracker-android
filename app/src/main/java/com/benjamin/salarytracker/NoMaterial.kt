@@ -18,6 +18,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
@@ -27,6 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -139,6 +141,43 @@ fun SquareIconButton(
     }
 }
 
+/** Bouton profil (accès Paramètres) avec un badge "PRO" si l'utilisateur est abonné. */
+@Composable
+fun ProfileIconButton(
+    isSubscribed: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    size: Dp = 42.dp
+) {
+    val shape = RoundedCornerShape(13.dp)
+    Box(modifier = modifier.size(size), contentAlignment = Alignment.Center) {
+        Box(
+            modifier = Modifier
+                .size(size)
+                .clip(shape)
+                .background(CardWhite)
+                .border(BorderStroke(1.dp, OutlineLt), shape)
+                .pressable(onClick),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(Icons.Default.Person, null, tint = Ink, modifier = Modifier.size(22.dp))
+        }
+        if (isSubscribed) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .offset(x = 3.dp, y = (-3).dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(Purple)
+                    .border(1.dp, CardWhite, RoundedCornerShape(50))
+                    .padding(horizontal = 3.dp, vertical = 0.5.dp)
+            ) {
+                Text("PRO", color = Color.White, fontSize = 6.sp, fontWeight = FontWeight.Black, letterSpacing = 0.3.sp)
+            }
+        }
+    }
+}
+
 /** Sélecteur segmenté (Semaine / Mois / Année). Actif = pilule noire. */
 @Composable
 fun SegmentedToggle(
@@ -247,7 +286,8 @@ fun ArcGaugeCard(
     progress: Float,
     modifier: Modifier = Modifier,
     onAction: (() -> Unit)? = null,
-    dark: Boolean = true
+    dark: Boolean = true,
+    bottomContent: @Composable (() -> Unit)? = null
 ) {
     val anim by animateFloatAsState(progress.coerceIn(0f, 1f), tween(1200, easing = FastOutSlowInEasing), label = "arc")
 
@@ -280,7 +320,7 @@ fun ArcGaugeCard(
                     ) {
                         Icon(
                             androidx.compose.material.icons.Icons.Default.Edit,
-                            contentDescription = "Modifier l'objectif",
+                            contentDescription = stringResource(R.string.gauge_edit_goal),
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(16.dp)
                         )
@@ -344,6 +384,10 @@ fun ArcGaugeCard(
                         letterSpacing = (-0.8).sp
                     )
                 }
+            }
+            if (bottomContent != null) {
+                Spacer(Modifier.height(10.dp))
+                bottomContent()
             }
         }
     }

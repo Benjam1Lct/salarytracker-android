@@ -20,6 +20,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -44,13 +45,13 @@ fun ManageTemplatesScreen(
                 title = {
                     Column {
                         Text(
-                            text = if (isAddingNew || editingTemplate != null) "TEMPLATES" else "MES HORAIRES",
+                            text = if (isAddingNew || editingTemplate != null) stringResource(R.string.mt_templates_header) else stringResource(R.string.mt_my_schedules),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             letterSpacing = 1.2.sp
                         )
                         Text(
-                            text = if (isAddingNew || editingTemplate != null) "Édition" else "Horaires types",
+                            text = if (isAddingNew || editingTemplate != null) stringResource(R.string.mt_editing) else stringResource(R.string.mt_templates_title),
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold
                         )
@@ -65,18 +66,18 @@ fun ManageTemplatesScreen(
                             onBack()
                         }
                     }) {
-                        Icon(Icons.Default.Close, contentDescription = "Fermer")
+                        Icon(Icons.Default.Close, contentDescription = stringResource(R.string.common_close))
                     }
                 },
                 actions = {
                     if (!isAddingNew && editingTemplate == null) {
                         IconButton(onClick = {
                             onRetrieveFromHistory { count ->
-                                val msg = if (count > 0) "$count templates récupérés !" else "Aucun nouveau template trouvé dans l'historique."
+                                val msg = if (count > 0) context.getString(R.string.mt_retrieved, count) else context.getString(R.string.mt_none_found)
                                 Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                             }
                         }) {
-                            Icon(Icons.Default.History, contentDescription = "Récupérer depuis l'historique")
+                            Icon(Icons.Default.History, contentDescription = stringResource(R.string.mt_retrieve))
                         }
                     }
                 },
@@ -90,7 +91,7 @@ fun ManageTemplatesScreen(
                 ExtendedFloatingActionButton(
                     onClick = { isAddingNew = true },
                     icon = { Icon(Icons.Default.Add, contentDescription = null) },
-                    text = { Text("Nouveau template", style = MaterialTheme.typography.labelLarge) },
+                    text = { Text(stringResource(R.string.modal_new_template), style = MaterialTheme.typography.labelLarge) },
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary,
                     shape = RoundedCornerShape(16.dp)
@@ -136,7 +137,7 @@ fun ManageTemplatesScreen(
                         ) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Text(
-                                    "Aucun template enregistré.\nAppuyez sur + pour en créer un.",
+                                    stringResource(R.string.mt_empty),
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -145,7 +146,7 @@ fun ManageTemplatesScreen(
                                 Button(
                                     onClick = {
                                         onRetrieveFromHistory { count ->
-                                            val msg = if (count > 0) "$count templates récupérés !" else "Aucun nouveau template trouvé dans l'historique."
+                                            val msg = if (count > 0) context.getString(R.string.mt_retrieved, count) else context.getString(R.string.mt_none_found)
                                             Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                                         }
                                     },
@@ -153,7 +154,7 @@ fun ManageTemplatesScreen(
                                 ) {
                                     Icon(Icons.Default.History, contentDescription = null)
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Récupérer depuis l'historique")
+                                    Text(stringResource(R.string.mt_retrieve))
                                 }
                             }
                         }
@@ -191,14 +192,14 @@ fun TemplateItem(template: DayTemplate, onClick: () -> Unit) {
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = "${template.startTime} – ${template.endTime}",
+                    text = stringResource(R.string.entry_time, template.startTime.toString(), template.endTime.toString()),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             if (template.pauseBlocks.isNotEmpty()) {
                 Text(
-                    text = "${template.pauseBlocks.sumOf { it.durationMinutes }}min pause",
+                    text = stringResource(R.string.mt_pause_min, template.pauseBlocks.sumOf { it.durationMinutes }),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary
                 )
@@ -235,7 +236,7 @@ fun TemplateEditor(
         OutlinedTextField(
             value = name,
             onValueChange = { name = it },
-            label = { Text("Nom du template") },
+            label = { Text(stringResource(R.string.mt_template_name)) },
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(14.dp)
         )
@@ -246,13 +247,13 @@ fun TemplateEditor(
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             TimePickerField(
-                label = "Début",
+                label = stringResource(R.string.add_start),
                 time = startTime,
                 onTimeChange = { startTime = it },
                 modifier = Modifier.weight(1f)
             )
             TimePickerField(
-                label = "Fin",
+                label = stringResource(R.string.add_end),
                 time = endTime,
                 onTimeChange = { endTime = it },
                 modifier = Modifier.weight(1f)
@@ -261,7 +262,7 @@ fun TemplateEditor(
 
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            "Pauses",
+            stringResource(R.string.add_breaks),
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -274,7 +275,7 @@ fun TemplateEditor(
             onClick = {
                 if (name.isBlank()) return@Button
                 if (!endTime.isAfter(startTime)) {
-                    Toast.makeText(context, "L'heure de fin doit être après le début", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, context.getString(R.string.add_end_after_start), Toast.LENGTH_LONG).show()
                 } else {
                     onSave(
                         DayTemplate(
@@ -295,7 +296,7 @@ fun TemplateEditor(
         ) {
             Icon(Icons.Default.Save, contentDescription = null)
             Spacer(Modifier.width(8.dp))
-            Text("Sauvegarder", style = MaterialTheme.typography.labelLarge)
+            Text(stringResource(R.string.sync_save), style = MaterialTheme.typography.labelLarge)
         }
 
         if (initialTemplate != null) {
@@ -312,7 +313,7 @@ fun TemplateEditor(
             ) {
                 Icon(Icons.Default.Delete, contentDescription = null)
                 Spacer(Modifier.width(8.dp))
-                Text("Supprimer", style = MaterialTheme.typography.labelLarge)
+                Text(stringResource(R.string.set_delete), style = MaterialTheme.typography.labelLarge)
             }
         }
 
@@ -320,7 +321,7 @@ fun TemplateEditor(
             onClick = onCancel,
             modifier = Modifier.align(Alignment.CenterHorizontally)
         ) {
-            Text("Annuler", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(R.string.common_cancel), color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

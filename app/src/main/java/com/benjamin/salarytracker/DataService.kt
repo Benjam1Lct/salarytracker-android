@@ -22,6 +22,7 @@ interface DataService {
     fun getAutoRules(jobId: String): Flow<List<AutoEntryRule>>
     fun getPayslips(jobId: String): Flow<List<Payslip>>
     fun getAppTheme(): Flow<String>
+    fun getAppLanguage(): Flow<String>
 
     suspend fun addCompany(company: Company)
     suspend fun deleteCompany(companyId: String)
@@ -48,6 +49,7 @@ interface DataService {
     suspend fun deletePayslip(jobId: String, payslipId: String)
 
     suspend fun updateAppTheme(theme: String)
+    suspend fun updateAppLanguage(lang: String)
     suspend fun saveGeminiApiKey(key: String)
     suspend fun getGeminiApiKey(): String?
 }

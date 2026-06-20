@@ -30,6 +30,10 @@ import kotlin.coroutines.resume
  */
 class LocalOcrService(private val context: Context) {
 
+    /** Préfixe un message de statut par la source « IA locale ». */
+    private fun tagged(msg: String): String =
+        context.getString(R.string.ai_source_fmt, context.getString(R.string.ai_source_local), msg)
+
     private val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
     private val TAG = "LocalOcrService"
 
@@ -95,7 +99,7 @@ class LocalOcrService(private val context: Context) {
     private suspend fun extractAllText(uris: List<Uri>, onStatus: (String) -> Unit): String {
         val builder = StringBuilder()
         uris.forEachIndexed { index, uri ->
-            onStatus("Lecture du document ${index + 1}/${uris.size}…")
+            onStatus(tagged(context.getString(R.string.ocr_reading_doc, index + 1, uris.size)))
             val mime = context.contentResolver.getType(uri) ?: ""
             val text = when {
                 mime.startsWith("image/") -> extractTextFromImageUri(uri)
@@ -122,20 +126,20 @@ class LocalOcrService(private val context: Context) {
         uris: List<Uri>,
         onStatus: (String) -> Unit = {}
     ): ContractAnalysis = withContext(Dispatchers.IO) {
-        if (uris.isEmpty()) return@withContext ContractAnalysis.Failure("Aucun fichier sélectionné")
+        if (uris.isEmpty()) return@withContext ContractAnalysis.Failure(context.getString(R.string.ocr_no_file))
 
         try {
             val text = extractAllText(uris, onStatus)
             if (text.isBlank()) {
-                return@withContext ContractAnalysis.Failure("Aucun texte lisible dans les documents")
+                return@withContext ContractAnalysis.Failure(context.getString(R.string.ocr_no_text))
             }
 
-            onStatus("Analyse locale du contrat…")
+            onStatus(tagged(context.getString(R.string.ocr_local_contract)))
             val job = parseContractFromText(text)
             ContractAnalysis.Success(job)
         } catch (e: Exception) {
             Log.e(TAG, "extractMultiContractData local failed", e)
-            ContractAnalysis.Failure(e.message ?: "Erreur d'analyse locale")
+            ContractAnalysis.Failure(e.message ?: context.getString(R.string.ocr_local_error))
         }
     }
 
@@ -330,21 +334,21 @@ class LocalOcrService(private val context: Context) {
         uris: List<Uri>,
         onStatus: (String) -> Unit = {}
     ): PayslipAnalysis = withContext(Dispatchers.IO) {
-        if (uris.isEmpty()) return@withContext PayslipAnalysis.Failure("Aucun fichier sélectionné")
+        if (uris.isEmpty()) return@withContext PayslipAnalysis.Failure(context.getString(R.string.ocr_no_file))
 
         try {
             val text = extractAllText(uris, onStatus)
             if (text.isBlank()) {
-                return@withContext PayslipAnalysis.Failure("Aucun texte lisible dans les documents")
+                return@withContext PayslipAnalysis.Failure(context.getString(R.string.ocr_no_text))
             }
 
-            onStatus("Analyse locale de la fiche de paie…")
+            onStatus(tagged(context.getString(R.string.ocr_local_payslip)))
             val payslip = parsePayslipFromText(text)
-                ?: return@withContext PayslipAnalysis.Failure("Impossible d'extraire les données de la fiche de paie")
+                ?: return@withContext PayslipAnalysis.Failure(context.getString(R.string.ocr_no_payslip_data))
             PayslipAnalysis.Success(payslip)
         } catch (e: Exception) {
             Log.e(TAG, "extractPayslipData local failed", e)
-            PayslipAnalysis.Failure(e.message ?: "Erreur d'analyse locale")
+            PayslipAnalysis.Failure(e.message ?: context.getString(R.string.ocr_local_error))
         }
     }
 
@@ -425,7 +429,7 @@ class LocalOcrService(private val context: Context) {
         text: String,
         onStatus: (String) -> Unit = {}
     ): List<DayEntry> = withContext(Dispatchers.IO) {
-        onStatus("Analyse locale de l'historique…")
+        onStatus(tagged(context.getString(R.string.ocr_local_history)))
         parseDaysFromText(text)
     }
 

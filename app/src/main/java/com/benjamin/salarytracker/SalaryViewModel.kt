@@ -4,10 +4,23 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withTimeoutOrNull
+
+/** Limites IA (doivent correspondre à functions/index.js : DAILY_LIMIT / MONTHLY_LIMIT). */
+const val AI_DAILY_LIMIT = 10
+const val AI_MONTHLY_LIMIT = 100
+
+/** Consommation IA de l'abonné (compteurs jour + mois). */
+data class AiUsage(
+    val dailyUsed: Int,
+    val dailyLimit: Int,
+    val monthlyUsed: Int,
+    val monthlyLimit: Int
+)
 
 /** État de l'import de journées (lecture, analyse, succès, erreur). */
 sealed interface ImportStatus {
@@ -97,23 +110,31 @@ class SalaryViewModel(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val entries: StateFlow<List<DayEntry>> = currentJobId.flatMapLatest { id ->
-        if (id != null) data.getEntries(id) else flowOf(emptyList())
+    val entries: StateFlow<List<DayEntry>> = combine(_userSession, currentJobId) { session, id ->
+        session to id
+    }.flatMapLatest { (session, id) ->
+        if (session != null && id != null) data.getEntries(id) else flowOf(emptyList())
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val templates: StateFlow<List<DayTemplate>> = currentJobId.flatMapLatest { id ->
-        if (id != null) data.getTemplates(id) else flowOf(emptyList())
+    val templates: StateFlow<List<DayTemplate>> = combine(_userSession, currentJobId) { session, id ->
+        session to id
+    }.flatMapLatest { (session, id) ->
+        if (session != null && id != null) data.getTemplates(id) else flowOf(emptyList())
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val autoRules: StateFlow<List<AutoEntryRule>> = currentJobId.flatMapLatest { id ->
-        if (id != null) data.getAutoRules(id) else flowOf(emptyList())
+    val autoRules: StateFlow<List<AutoEntryRule>> = combine(_userSession, currentJobId) { session, id ->
+        session to id
+    }.flatMapLatest { (session, id) ->
+        if (session != null && id != null) data.getAutoRules(id) else flowOf(emptyList())
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val payslips: StateFlow<List<Payslip>> = currentJobId.flatMapLatest { id ->
-        if (id != null) data.getPayslips(id) else flowOf(emptyList())
+    val payslips: StateFlow<List<Payslip>> = combine(_userSession, currentJobId) { session, id ->
+        session to id
+    }.flatMapLatest { (session, id) ->
+        if (session != null && id != null) data.getPayslips(id) else flowOf(emptyList())
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -121,7 +142,97 @@ class SalaryViewModel(
         if (session != null) data.getAppTheme() else flowOf("purple")
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "purple")
 
+    /** Langue de l'app : "system" | "fr" | "en" (sauvegardée en BD + SharedPreferences). */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val appLanguage: StateFlow<String> = _userSession.flatMapLatest { session ->
+        if (session != null) data.getAppLanguage() else flowOf(localLanguagePref())
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), localLanguagePref())
+
+    private fun localLanguagePref(): String =
+        prefs.getString("app_language", "system") ?: "system"
+
+    /** Change la langue : persiste (prefs + BD) puis recrée l'activité pour appliquer. */
+    fun setLanguage(context: android.content.Context, lang: String) {
+        prefs.edit().putString("app_language", lang).apply()
+        viewModelScope.launch { data.updateAppLanguage(lang) }
+        (context as? android.app.Activity)?.recreate()
+    }
+
+    /** Aligne la préférence locale sur la valeur BD (sync inter-appareils). */
+    fun syncLanguageFromDb(context: android.content.Context, dbLang: String) {
+        if (dbLang.isNotBlank() && dbLang != localLanguagePref()) {
+            prefs.edit().putString("app_language", dbLang).apply()
+            (context as? android.app.Activity)?.recreate()
+        }
+    }
+
+    // ─── Abonnement Pro ───────────────────────────────────────────────────────
+    val billingManager = BillingManager(SalaryApp.instance)
+
+    /** Vrai si l'utilisateur a un abonnement Pro actif (lu côté serveur, non falsifiable). */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val isSubscribed: StateFlow<Boolean> = _userSession.flatMapLatest { session ->
+        if (session != null && !session.isLocal) subscriptionFlow(session.uid) else flowOf(false)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val subscriptionPrice: StateFlow<String?> = billingManager.formattedPrice
+
+    /** Consommation IA de l'utilisateur (doit refléter les limites du backend). */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val aiUsage: StateFlow<AiUsage?> = _userSession.flatMapLatest { session ->
+        if (session != null && !session.isLocal) aiUsageFlow(session.uid) else flowOf(null)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    private fun aiUsageFlow(uid: String): Flow<AiUsage> = callbackFlow {
+        val ref = com.google.firebase.database.FirebaseDatabase.getInstance(SalaryApp.DB_URL)
+            .getReference("aiUsage/$uid")
+        val listener = object : com.google.firebase.database.ValueEventListener {
+            override fun onDataChange(s: com.google.firebase.database.DataSnapshot) {
+                // Clés UTC, identiques à celles du backend (toISOString).
+                val now = java.time.OffsetDateTime.now(java.time.ZoneOffset.UTC)
+                val dayKey = now.toLocalDate().toString()
+                val ymKey = String.format("%04d-%02d", now.year, now.monthValue)
+                val daily = s.child("daily").child(dayKey).getValue(Long::class.java)?.toInt() ?: 0
+                val monthly = s.child("monthly").child(ymKey).getValue(Long::class.java)?.toInt() ?: 0
+                trySend(AiUsage(daily, AI_DAILY_LIMIT, monthly, AI_MONTHLY_LIMIT))
+            }
+            override fun onCancelled(e: com.google.firebase.database.DatabaseError) {
+                trySend(AiUsage(0, AI_DAILY_LIMIT, 0, AI_MONTHLY_LIMIT))
+            }
+        }
+        ref.addValueEventListener(listener)
+        awaitClose { ref.removeEventListener(listener) }
+    }
+
+    private fun subscriptionFlow(uid: String): Flow<Boolean> = callbackFlow {
+        val ref = com.google.firebase.database.FirebaseDatabase.getInstance(SalaryApp.DB_URL)
+            .getReference("subscriptions/$uid/active")
+        val listener = object : com.google.firebase.database.ValueEventListener {
+            override fun onDataChange(s: com.google.firebase.database.DataSnapshot) {
+                // Tolère booléen (true) ou chaîne ("true") — utile pour les tests manuels.
+                val raw = s.value
+                trySend(raw == true || raw == "true")
+            }
+            override fun onCancelled(e: com.google.firebase.database.DatabaseError) { trySend(false) }
+        }
+        ref.addValueEventListener(listener)
+        awaitClose { ref.removeEventListener(listener) }
+    }
+
+    fun launchSubscription(activity: android.app.Activity) {
+        billingManager.launchPurchase(activity)
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        billingManager.end()
+    }
+
     init {
+        billingManager.connect()
+        ConnectionTagHandler.onForceSave = { _, callback ->
+            forceLocalSave(callback)
+        }
         activeSessionStartTime.value = prefs.getLong("active_session_start_time", 0L)
         activeSessionPauseStartTime.value = prefs.getLong("active_session_pause_start_time", 0L)
         activeSessionTotalPauseMs.value = prefs.getLong("active_session_total_pause_ms", 0L)
@@ -139,7 +250,7 @@ class SalaryViewModel(
 
         if (savedUid != null && savedName != null && savedEmail != null) {
             val session = UserSession(savedUid, savedName, savedEmail, savedPhoto, savedIsLocal)
-            _userSession.value = session
+            updateSession(session)
             loadApiKeyForUser(savedUid)
         } else {
             val firebaseUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
@@ -151,7 +262,7 @@ class SalaryViewModel(
                     photoUrl = firebaseUser.photoUrl?.toString(),
                     isLocal = false
                 )
-                _userSession.value = session
+                updateSession(session)
                 loadApiKeyForUser(firebaseUser.uid)
             }
         }
@@ -199,19 +310,65 @@ class SalaryViewModel(
     }
 
     private fun checkMinVersion() {
+        fun isVersionNameOlder(current: String, required: String): Boolean {
+            val currentParts = current.split(".").mapNotNull { it.toIntOrNull() }
+            val requiredParts = required.split(".").mapNotNull { it.toIntOrNull() }
+            val maxLen = maxOf(currentParts.size, requiredParts.size)
+            for (i in 0 until maxLen) {
+                val curPart = currentParts.getOrElse(i) { 0 }
+                val reqPart = requiredParts.getOrElse(i) { 0 }
+                if (curPart < reqPart) return true
+                if (curPart > reqPart) return false
+            }
+            return false
+        }
+
         viewModelScope.launch {
             try {
-                val snap = com.google.firebase.database.FirebaseDatabase.getInstance(SalaryApp.DB_URL)
+                // 1. Vérifie config/minVersionCode (qui peut contenir un double comme 1.4 ou un entier comme 5)
+                val codeSnap = com.google.firebase.database.FirebaseDatabase.getInstance(SalaryApp.DB_URL)
                     .getReference("config/minVersionCode").get().await()
-                val min = when (val value = snap.value) {
-                    is Number -> value.toInt()
-                    is String -> value.toDoubleOrNull()?.toInt() ?: 0
-                    else -> 0
+                val rawCode = codeSnap.value
+                if (rawCode != null) {
+                    val strValue = rawCode.toString().trim()
+                    if (strValue.contains(".")) {
+                        if (isVersionNameOlder(BuildConfig.VERSION_NAME, strValue)) {
+                            _updateRequired.value = true
+                        }
+                    } else {
+                        val minCode = strValue.toIntOrNull() ?: 0
+                        if (BuildConfig.VERSION_CODE < minCode) {
+                            _updateRequired.value = true
+                        }
+                    }
                 }
-                if (BuildConfig.VERSION_CODE < min) {
-                    _updateRequired.value = true
+
+                // 2. Vérifie également config/minVersionName si spécifiquement défini
+                val nameSnap = com.google.firebase.database.FirebaseDatabase.getInstance(SalaryApp.DB_URL)
+                    .getReference("config/minVersionName").get().await()
+                val minName = nameSnap.value?.toString()?.trim()
+                if (!minName.isNullOrEmpty()) {
+                    if (isVersionNameOlder(BuildConfig.VERSION_NAME, minName)) {
+                        _updateRequired.value = true
+                    }
                 }
             } catch (_: Exception) {}
+        }
+    }
+
+    fun forceLocalSave(onResult: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            try {
+                if (data is SyncDataService) {
+                    (data as SyncDataService).forceSaveLocal()
+                    onResult(true)
+                } else {
+                    onResult(true)
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("SalaryViewModel", "Manual save local failed", e)
+                onResult(false)
+            }
         }
     }
 
@@ -550,7 +707,7 @@ class SalaryViewModel(
 
     fun loginWithGoogle(uid: String, email: String, name: String, photoUrl: String?) {
         val session = UserSession(uid, name, email, photoUrl, isLocal = false)
-        _userSession.value = session
+        updateSession(session)
         persistSession(session)
         loadApiKeyForUser(uid)
     }
@@ -563,7 +720,7 @@ class SalaryViewModel(
             photoUrl = null,
             isLocal = false
         )
-        _userSession.value = session
+        updateSession(session)
         persistSession(session)
         loadApiKeyForUser(uid)
     }
@@ -704,7 +861,7 @@ class SalaryViewModel(
     /** Lie un identifiant Google (idToken) au compte connecté. */
     fun linkWithGoogle(idToken: String, onResult: (Boolean, String?) -> Unit) {
         val user = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
-            ?: return onResult(false, "Aucun utilisateur connecté.")
+            ?: return onResult(false, SalaryApp.instance.getString(R.string.vm_no_user))
         val credential = com.google.firebase.auth.GoogleAuthProvider.getCredential(idToken, null)
         user.linkWithCredential(credential)
             .addOnCompleteListener { task ->
@@ -716,7 +873,7 @@ class SalaryViewModel(
     /** Lie un numéro de téléphone (verificationId + code SMS) au compte connecté. */
     fun linkWithPhone(verificationId: String, code: String, onResult: (Boolean, String?) -> Unit) {
         val user = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
-            ?: return onResult(false, "Aucun utilisateur connecté.")
+            ?: return onResult(false, SalaryApp.instance.getString(R.string.vm_no_user))
         val credential = com.google.firebase.auth.PhoneAuthProvider.getCredential(verificationId, code)
         user.linkWithCredential(credential)
             .addOnCompleteListener { task ->
@@ -728,7 +885,7 @@ class SalaryViewModel(
     /** Lie un e-mail et un mot de passe au compte connecté. */
     fun linkWithEmailAndPassword(email: String, password: String, onResult: (Boolean, String?) -> Unit) {
         val user = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
-            ?: return onResult(false, "Aucun utilisateur connecté.")
+            ?: return onResult(false, SalaryApp.instance.getString(R.string.vm_no_user))
         val credential = com.google.firebase.auth.EmailAuthProvider.getCredential(email, password)
         user.linkWithCredential(credential)
             .addOnCompleteListener { task ->
@@ -740,7 +897,7 @@ class SalaryViewModel(
     /** Délie un fournisseur du compte courant (impossible s'il n'en reste qu'un). */
     fun unlinkProvider(providerId: String, onResult: (Boolean, String?) -> Unit) {
         val user = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
-            ?: return onResult(false, "Aucun utilisateur connecté.")
+            ?: return onResult(false, SalaryApp.instance.getString(R.string.vm_no_user))
         if (linkedProviderIds().size <= 1) {
             onResult(false, "Impossible de délier votre seule méthode de connexion.")
             return
@@ -768,7 +925,7 @@ class SalaryViewModel(
             photoUrl = null,
             isLocal = false
         )
-        _userSession.value = session
+        updateSession(session)
         persistSession(session)
         loadApiKeyForUser(uid)
     }
@@ -794,7 +951,7 @@ class SalaryViewModel(
             } catch (e: Exception) { false }
             if (ok) {
                 val session = UserSession(uid, "Compte local", "$uid@local", isLocal = true)
-                _userSession.value = session
+                updateSession(session)
                 persistSession(session)
                 loadApiKeyForUser(uid)
             }
@@ -806,7 +963,7 @@ class SalaryViewModel(
     fun loginLocal(name: String) {
         val uid = "local_${name.lowercase().replace(" ", "_")}"
         val session = UserSession(uid, name, "$uid@local", isLocal = true)
-        _userSession.value = session
+        updateSession(session)
         persistSession(session)
         loadApiKeyForUser(uid)
     }
@@ -833,7 +990,7 @@ class SalaryViewModel(
             .remove("user_is_local")
             .apply()
 
-        _userSession.value = null
+        updateSession(null)
         _currentJobId.value = null
         geminiApiKey.value = ""
     }
@@ -872,9 +1029,17 @@ class SalaryViewModel(
                 .remove("user_is_local")
                 .apply()
 
-            _userSession.value = null
+            updateSession(null)
             _currentJobId.value = null
             geminiApiKey.value = ""
+        }
+    }
+
+    private fun updateSession(session: UserSession?) {
+        _userSession.value = session
+        if (session != null) {
+            localService.setUserId(session.uid)
+            syncService.setUserId(session.uid)
         }
     }
 
@@ -980,21 +1145,21 @@ class SalaryViewModel(
     ) {
         val jobId = currentJobId.value
         if (jobId == null) {
-            onError("Aucun job sélectionné pour l'importation.")
+            onError(SalaryApp.instance.getString(R.string.vm_no_job))
             return
         }
         val currentJobValue = currentJob.value ?: return
 
         viewModelScope.launch {
             _isRefreshing.value = true
-            _importStatus.value = ImportStatus.InProgress("Lecture du document…")
+            _importStatus.value = ImportStatus.InProgress(SalaryApp.instance.getString(R.string.vm_reading_doc))
             try {
                 val mime = context.contentResolver.getType(uri) ?: ""
                 val isImage = mime.startsWith("image/")
 
                 // Image → OCR on-device (ML Kit) pour obtenir le texte ; sinon lecture directe.
                 val text = if (isImage) {
-                    _importStatus.value = ImportStatus.InProgress("Lecture de l'image (OCR)…")
+                    _importStatus.value = ImportStatus.InProgress(SalaryApp.instance.getString(R.string.vm_reading_image))
                     LocalOcrService(context).ocrImage(uri)
                 } else {
                     context.contentResolver.openInputStream(uri)?.use { inputStream ->
@@ -1003,7 +1168,7 @@ class SalaryViewModel(
                 }
 
                 if (text.isBlank()) {
-                    val msg = if (isImage) "Aucun texte lisible dans l'image." else "Le fichier est vide."
+                    val msg = if (isImage) SalaryApp.instance.getString(R.string.vm_no_text_image) else SalaryApp.instance.getString(R.string.vm_file_empty)
                     _importStatus.value = ImportStatus.Error(msg)
                     onError(msg)
                     return@launch
@@ -1014,34 +1179,45 @@ class SalaryViewModel(
 
                 if (importedEntries.isEmpty()) {
                     val apiKeyToUse = geminiApiKey.value
-                    // Aucune donnée CSV → on a besoin de l'IA. Si aucun mode IA n'est
-                    // encore choisi (pas de clé ET pas d'IA locale validée), on demande
-                    // à l'utilisateur via la modal au lieu de basculer silencieusement.
-                    if (apiKeyToUse.isBlank() && !useLocalAi.value) {
+                    val subscribed = isSubscribed.value
+                    // Aucune donnée CSV → on a besoin de l'IA. Abonné : backend sécurisé.
+                    // Sinon, si aucun mode IA choisi (pas de clé ET pas d'IA locale validée),
+                    // on demande à l'utilisateur via la modal.
+                    if (!subscribed && apiKeyToUse.isBlank() && !useLocalAi.value) {
                         _isRefreshing.value = false
                         _importStatus.value = ImportStatus.Idle
                         onNeedAiChoice()
                         return@launch
                     }
-                    _importStatus.value = ImportStatus.InProgress("Analyse des journées…")
-                    if (apiKeyToUse.isBlank() || useLocalAi.value) {
+                    val analyzeMsg = SalaryApp.instance.getString(R.string.vm_analyzing)
+                    fun srcMsg(srcRes: Int) = SalaryApp.instance.getString(
+                        R.string.ai_source_fmt, SalaryApp.instance.getString(srcRes), analyzeMsg
+                    )
+                    if (subscribed) {
+                        // Abonné Pro : IA clé en main via la Cloud Function.
+                        _importStatus.value = ImportStatus.InProgress(srcMsg(R.string.ai_source_pro))
+                        val ocr = OcrService(context, "", useBackend = true)
+                        importedEntries = ocr.extractDaysFromText(text) { status -> }
+                    } else if (apiKeyToUse.isBlank() || useLocalAi.value) {
                         // Mode IA locale : ML Kit + regex
+                        _importStatus.value = ImportStatus.InProgress(srcMsg(R.string.ai_source_local))
                         val localOcr = LocalOcrService(context)
                         importedEntries = localOcr.extractDaysFromText(text) { status -> }
                     } else {
+                        _importStatus.value = ImportStatus.InProgress(srcMsg(R.string.ai_source_key))
                         val ocr = OcrService(context, apiKeyToUse)
                         importedEntries = ocr.extractDaysFromText(text) { status -> }
                     }
                 }
 
                 if (importedEntries.isEmpty()) {
-                    val msg = "Aucune journée de travail n'a pu être extraite de ce fichier."
+                    val msg = SalaryApp.instance.getString(R.string.vm_no_days_extracted)
                     _importStatus.value = ImportStatus.Error(msg)
                     onError(msg)
                     return@launch
                 }
 
-                _importStatus.value = ImportStatus.InProgress("Enregistrement…")
+                _importStatus.value = ImportStatus.InProgress(SalaryApp.instance.getString(R.string.vm_saving))
 
                 val finalEntries = importedEntries.map { it.copy(jobId = jobId) }
 
@@ -1075,8 +1251,9 @@ class SalaryViewModel(
                 _importStatus.value = ImportStatus.Success(mergedEntries.size)
                 onSuccess(mergedEntries.size)
             } catch (e: Exception) {
-                _importStatus.value = ImportStatus.Error("Erreur d'importation : ${e.message}")
-                onError("Erreur d'importation : ${e.message}")
+                val errMsg = SalaryApp.instance.getString(R.string.vm_import_error, e.message ?: "")
+                _importStatus.value = ImportStatus.Error(errMsg)
+                onError(errMsg)
             } finally {
                 _isRefreshing.value = false
             }
@@ -1121,14 +1298,16 @@ class SalaryViewModel(
             }
         }
 
+        // Alarme INEXACTE : un rappel quotidien ne nécessite pas une précision à la seconde.
+        // Évite la permission restreinte SCHEDULE_EXACT_ALARM/USE_EXACT_ALARM (politique Play Store).
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
-            alarmManager.setExactAndAllowWhileIdle(
+            alarmManager.setAndAllowWhileIdle(
                 android.app.AlarmManager.RTC_WAKEUP,
                 calendar.timeInMillis,
                 pendingIntent
             )
         } else {
-            alarmManager.setExact(
+            alarmManager.set(
                 android.app.AlarmManager.RTC_WAKEUP,
                 calendar.timeInMillis,
                 pendingIntent

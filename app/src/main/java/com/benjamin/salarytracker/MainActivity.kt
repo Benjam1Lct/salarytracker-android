@@ -29,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -56,6 +57,15 @@ import java.util.Locale
 
 
 class MainActivity : ComponentActivity() {
+
+    /** Applique la langue choisie (Système / fr / en) avant la création de l'UI. */
+    override fun attachBaseContext(newBase: android.content.Context) {
+        val lang = newBase
+            .getSharedPreferences("salary_tracker_prefs", android.content.Context.MODE_PRIVATE)
+            .getString("app_language", "system") ?: "system"
+        super.attachBaseContext(applyAppLocale(newBase, lang))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -106,6 +116,10 @@ fun SalaryTrackerApp(
     val payslips by viewModel.payslips.collectAsStateWithLifecycle()
     val connectionStatus by viewModel.connectionStatus.collectAsStateWithLifecycle()
     val userSession by viewModel.userSession.collectAsStateWithLifecycle()
+    val isSubscribed by viewModel.isSubscribed.collectAsStateWithLifecycle()
+    val subscriptionPrice by viewModel.subscriptionPrice.collectAsStateWithLifecycle()
+    val aiUsage by viewModel.aiUsage.collectAsStateWithLifecycle()
+    val appLanguage by viewModel.appLanguage.collectAsStateWithLifecycle()
     val geminiApiKey by viewModel.geminiApiKey.collectAsStateWithLifecycle()
     val useLocalAi by viewModel.useLocalAi.collectAsStateWithLifecycle()
     val dailyReminderEnabled by viewModel.dailyReminderEnabled.collectAsStateWithLifecycle()
@@ -124,13 +138,18 @@ fun SalaryTrackerApp(
 
     val context = androidx.compose.ui.platform.LocalContext.current
 
+    // Synchronise la langue depuis la BD (changement sur un autre appareil).
+    LaunchedEffect(appLanguage) {
+        viewModel.syncLanguageFromDb(context, appLanguage)
+    }
+
     // Export des données locales (sauvegarde)
     val exportDataLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/octet-stream")
     ) { uri: Uri? ->
         uri?.let {
             viewModel.exportLocalData(context, it) { ok ->
-                Toast.makeText(context, if (ok) "Données sauvegardées ✓" else "Échec de la sauvegarde", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, if (ok) context.getString(R.string.ma_data_saved) else context.getString(R.string.ma_save_failed), Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -141,7 +160,7 @@ fun SalaryTrackerApp(
     ) { uri: Uri? ->
         uri?.let {
             viewModel.importLocalData(context, it) { ok ->
-                Toast.makeText(context, if (ok) "Données importées ✓" else "Fichier de sauvegarde invalide", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, if (ok) context.getString(R.string.ma_data_imported) else context.getString(R.string.ma_invalid_backup), Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -152,7 +171,7 @@ fun SalaryTrackerApp(
         if (isGranted) {
             viewModel.setDailyReminder(context, true)
         } else {
-            Toast.makeText(context, "Permission refusée : les rappels ne s'afficheront pas.", Toast.LENGTH_LONG).show()
+            Toast.makeText(context, context.getString(R.string.ma_perm_denied), Toast.LENGTH_LONG).show()
         }
     }
 
@@ -185,7 +204,6 @@ fun SalaryTrackerApp(
     val scope = rememberCoroutineScope()
     var loginStatus by remember { mutableStateOf("IDLE") } // "IDLE", "CONNECTING", "SUCCESS"
 
-    var showGoogleChooserFallback by remember { mutableStateOf(false) }
     var showGoogleErrorDialog by remember { mutableStateOf(false) }
     var googleErrorCode by remember { mutableStateOf("") }
     var googleErrorMessage by remember { mutableStateOf("") }
@@ -207,7 +225,7 @@ fun SalaryTrackerApp(
         try {
             val account = task.getResult(ApiException::class.java)
             val email = account.email ?: ""
-            val displayName = account.displayName ?: "Utilisateur Google"
+            val displayName = account.displayName ?: context.getString(R.string.ma_google_user)
             val photoUrl = account.photoUrl?.toString()
             val idToken = account.idToken
 
@@ -219,12 +237,12 @@ fun SalaryTrackerApp(
                         refreshProviders()
                         Toast.makeText(
                             context,
-                            if (ok) "Compte Google lié ✓" else (err ?: "Échec de la liaison Google."),
+                            if (ok) context.getString(R.string.ma_google_linked) else (err ?: context.getString(R.string.ma_google_link_failed)),
                             Toast.LENGTH_LONG
                         ).show()
                     }
                 } else {
-                    Toast.makeText(context, "Jeton Google manquant.", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, context.getString(R.string.ma_google_token_missing), Toast.LENGTH_SHORT).show()
                 }
                 return@rememberLauncherForActivityResult
             }
@@ -272,17 +290,17 @@ fun SalaryTrackerApp(
             loginStatus = "IDLE"
             googleErrorCode = e.statusCode.toString()
             googleErrorMessage = when (e.statusCode) {
-                10 -> "DEVELOPER_ERROR : L'empreinte SHA-1 de votre application n'est probablement pas enregistrée dans la console Firebase, ou la configuration dans google-services.json est incomplète."
-                12500 -> "SIGN_IN_FAILED : Échec de la connexion. Vérifiez les services Google Play sur votre appareil."
-                7 -> "NETWORK_ERROR : Erreur réseau. Vérifiez votre connexion Internet."
-                else -> e.message ?: "Une erreur s'est produite lors de l'authentification Google."
+                10 -> context.getString(R.string.ma_err_dev)
+                12500 -> context.getString(R.string.ma_err_signin)
+                7 -> context.getString(R.string.ma_err_network)
+                else -> e.message ?: context.getString(R.string.ma_google_err_generic)
             }
             showGoogleErrorDialog = true
         } catch (e: Exception) {
             android.util.Log.e("MainActivity", "Google Sign In task failed: ${e.message}")
             loginStatus = "IDLE"
-            googleErrorCode = "Inconnue"
-            googleErrorMessage = e.message ?: "Une erreur inattendue est survenue."
+            googleErrorCode = "?"
+            googleErrorMessage = e.message ?: context.getString(R.string.ma_google_err_unexpected)
             showGoogleErrorDialog = true
         }
     }
@@ -310,15 +328,15 @@ fun SalaryTrackerApp(
                 googleSignInLauncher.launch(client.signInIntent)
             } else {
                 loginStatus = "IDLE"
-                googleErrorCode = "Contexte"
-                googleErrorMessage = "Impossible d'accéder au contexte de l'activité."
+                googleErrorCode = "Context"
+                googleErrorMessage = context.getString(R.string.ma_google_err_context)
                 showGoogleErrorDialog = true
             }
         } catch (e: Exception) {
             android.util.Log.e("MainActivity", "Google Sign In launch failed: ${e.message}")
             loginStatus = "IDLE"
-            googleErrorCode = "Initialisation"
-            googleErrorMessage = e.message ?: "Impossible d'initialiser le module Google Sign-In."
+            googleErrorCode = "Init"
+            googleErrorMessage = e.message ?: context.getString(R.string.ma_google_err_init)
             showGoogleErrorDialog = true
         }
     }
@@ -344,11 +362,11 @@ fun SalaryTrackerApp(
                 }
             } else {
                 googleAuthMode = "signin"
-                Toast.makeText(context, "Contexte d'activité indisponible.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(R.string.ma_context_unavailable), Toast.LENGTH_SHORT).show()
             }
         } catch (e: Exception) {
             googleAuthMode = "signin"
-            Toast.makeText(context, "Erreur Google : ${e.message}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.ma_google_error_toast, e.message ?: ""), Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -546,6 +564,7 @@ fun SalaryTrackerApp(
                         entries = entries,
                         templates = templates,
                         connectionStatus = connectionStatus,
+                        isSubscribed = isSubscribed,
                         onAddEntry = { editingEntry = null; navController.navigate("add_day") },
                         onEditEntry = { editingEntry = it; navController.navigate("add_day") },
                         onCreateTemplate = { navController.navigate("manage_templates") },
@@ -581,6 +600,7 @@ fun SalaryTrackerApp(
                         job = job,
                         entries = entries,
                         connectionStatus = connectionStatus,
+                        isSubscribed = isSubscribed,
                         onAddEntry = { date ->
                             editingEntry = DayEntry(
                                 id = "",
@@ -609,6 +629,7 @@ fun SalaryTrackerApp(
                         entries = entries,
                         mode = "salary",
                         connectionStatus = connectionStatus,
+                        isSubscribed = isSubscribed,
                         isRefreshing = isRefreshing,
                         onRefresh = { viewModel.refresh() },
                         onOpenPayslips = { navController.navigate("payslips") },
@@ -634,6 +655,7 @@ fun SalaryTrackerApp(
                         connectionStatus = connectionStatus,
                         geminiApiKey = geminiApiKey,
                         useLocalAi = useLocalAi,
+                        isSubscribed = isSubscribed,
                         onNeedGeminiKey = { showGeminiKeyModal = true },
                         onAddPayslip = { viewModel.addPayslip(it) },
                         onDeletePayslip = { viewModel.deletePayslip(it) },
@@ -649,6 +671,7 @@ fun SalaryTrackerApp(
                         entries = entries,
                         mode = "hours",
                         connectionStatus = connectionStatus,
+                        isSubscribed = isSubscribed,
                         isRefreshing = isRefreshing,
                         onRefresh = { viewModel.refresh() },
                         onImportFile = { uri, onSuccess, onError ->
@@ -667,6 +690,7 @@ fun SalaryTrackerApp(
                         templates = templates,
                         autoRules = autoRules,
                         connectionStatus = connectionStatus,
+                        isSubscribed = isSubscribed,
                         onAddRule = { viewModel.addAutoRule(it) },
                         onDeleteRule = { viewModel.deleteAutoRule(it) },
                         onSettings = { navController.navigate("settings") },
@@ -749,6 +773,7 @@ fun SalaryTrackerApp(
                 CreateJobScreen(
                     geminiApiKey = geminiApiKey,
                     useLocalAi = useLocalAi,
+                    isSubscribed = isSubscribed,
                     presetCompanyId = contractPreset?.first,
                     presetCompanyName = contractPreset?.second,
                     onNeedGeminiKey = { showGeminiKeyModal = true },
@@ -777,6 +802,7 @@ fun SalaryTrackerApp(
                         existingJob = jobToEdit,
                         geminiApiKey = geminiApiKey,
                         useLocalAi = useLocalAi,
+                        isSubscribed = isSubscribed,
                         onNeedGeminiKey = { showGeminiKeyModal = true },
                         onJobCreated = {},
                         onJobUpdated = { viewModel.updateJob(it) },
@@ -796,6 +822,10 @@ fun SalaryTrackerApp(
                     connectionStatus = connectionStatus,
                     userSession = userSession,
                     geminiApiKey = geminiApiKey,
+                    isSubscribed = isSubscribed,
+                    onOpenSubscription = { navController.navigate("subscription") },
+                    appLanguage = appLanguage,
+                    onLanguageChange = { viewModel.setLanguage(context, it) },
                     dailyReminderEnabled = dailyReminderEnabled,
                     dailyReminderHour = dailyReminderHour,
                     dailyReminderMinute = dailyReminderMinute,
@@ -828,7 +858,7 @@ fun SalaryTrackerApp(
                     },
                     onDeleteAllEntries = {
                         viewModel.deleteAllEntries { count ->
-                            Toast.makeText(context, "$count journée(s) supprimée(s)", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.ma_days_deleted, count), Toast.LENGTH_SHORT).show()
                         }
                     },
                     linkedProviders = linkedProviders,
@@ -838,7 +868,7 @@ fun SalaryTrackerApp(
                             refreshProviders()
                             callback(ok, err)
                             if (ok) {
-                                Toast.makeText(context, "E-mail lié ✓", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, context.getString(R.string.ma_email_linked), Toast.LENGTH_SHORT).show()
                             }
                         }
                     },
@@ -847,10 +877,30 @@ fun SalaryTrackerApp(
                             refreshProviders()
                             Toast.makeText(
                                 context,
-                                if (ok) "Méthode dissociée ✓" else (err ?: "Échec de la dissociation."),
+                                if (ok) context.getString(R.string.ma_unlinked) else (err ?: context.getString(R.string.ma_unlink_failed)),
                                 Toast.LENGTH_LONG
                             ).show()
                         }
+                    },
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable(
+                "subscription",
+                enterTransition = { slideInVertically(animationSpec = tween(320)) { it } },
+                popExitTransition = { slideOutVertically(animationSpec = tween(300)) { it } }
+            ) {
+                val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
+                SubscriptionScreen(
+                    isSubscribed = isSubscribed,
+                    price = subscriptionPrice,
+                    aiUsage = aiUsage,
+                    onSubscribe = { context.findActivity()?.let { viewModel.launchSubscription(it) } },
+                    onManage = {
+                        try {
+                            uriHandler.openUri("https://play.google.com/store/account/subscriptions?sku=${BillingManager.SUBSCRIPTION_ID}&package=com.benjamin.salarytracker")
+                        } catch (_: Exception) {}
                     },
                     onBack = { navController.popBackStack() }
                 )
@@ -899,13 +949,13 @@ fun SalaryTrackerApp(
         AlertDialog(
             onDismissRequest = { showCreateCompany = false },
             icon = { Icon(Icons.Default.Add, null, tint = MaterialTheme.colorScheme.primary) },
-            title = { Text("Nouvelle entreprise") },
+            title = { Text(stringResource(R.string.ma_new_company)) },
             text = {
                 Column {
                     OutlinedTextField(
                         value = companyNameInput,
                         onValueChange = { companyNameInput = it },
-                        label = { Text("Nom de l'entreprise") },
+                        label = { Text(stringResource(R.string.ma_company_name)) },
                         singleLine = true,
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth()
@@ -919,7 +969,7 @@ fun SalaryTrackerApp(
                             checked = addBaseContract,
                             onCheckedChange = { addBaseContract = it }
                         )
-                        Text("Créer un contrat de base maintenant", style = MaterialTheme.typography.bodySmall)
+                        Text(stringResource(R.string.ma_create_base_contract), style = MaterialTheme.typography.bodySmall)
                     }
                 }
             },
@@ -936,9 +986,9 @@ fun SalaryTrackerApp(
                         }
                     },
                     enabled = companyNameInput.isNotBlank()
-                ) { Text("Créer") }
+                ) { Text(stringResource(R.string.ma_create)) }
             },
-            dismissButton = { TextButton(onClick = { showCreateCompany = false }) { Text("Annuler") } }
+            dismissButton = { TextButton(onClick = { showCreateCompany = false }) { Text(stringResource(R.string.common_cancel)) } }
         )
     }
 
@@ -957,147 +1007,6 @@ fun SalaryTrackerApp(
         )
     }
 
-    if (showGoogleChooserFallback) {
-        AlertDialog(
-            onDismissRequest = { showGoogleChooserFallback = false },
-            title = {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Row {
-                        Text("G", color = Color(0xFF4285F4), fontWeight = FontWeight.Bold, fontSize = 24.sp)
-                        Text("o", color = Color(0xFFEA4335), fontWeight = FontWeight.Bold, fontSize = 24.sp)
-                        Text("o", color = Color(0xFFFBBC05), fontWeight = FontWeight.Bold, fontSize = 24.sp)
-                        Text("g", color = Color(0xFF4285F4), fontWeight = FontWeight.Bold, fontSize = 24.sp)
-                        Text("l", color = Color(0xFF34A853), fontWeight = FontWeight.Bold, fontSize = 24.sp)
-                        Text("e", color = Color(0xFFEA4335), fontWeight = FontWeight.Bold, fontSize = 24.sp)
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        text = "Choisir un compte",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "pour continuer vers SalaryTracker",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    val accounts = listOf(
-                        "benjamin.dev.31@gmail.com" to "Benjamin",
-                        "lucas.salarytracker@gmail.com" to "Lucas",
-                        "hugo.salarytracker@gmail.com" to "Hugo"
-                    )
-
-                    accounts.forEach { (email, name) ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .clickable {
-                                    val uid = "google_${name.lowercase().replace(" ", "_")}"
-                                    viewModel.loginWithGoogle(uid, email, name, null)
-                                    showGoogleChooserFallback = false
-                                }
-                                .padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = name.take(1),
-                                    color = MaterialTheme.colorScheme.primary,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                            Spacer(Modifier.width(12.dp))
-                            Column {
-                                Text(name, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                                Text(email, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
-                    }
-
-                    var showCustomEmailField by remember { mutableStateOf(false) }
-                    var customEmail by remember { mutableStateOf("") }
-                    var customName by remember { mutableStateOf("") }
-
-                    if (!showCustomEmailField) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .clickable { showCustomEmailField = true }
-                                .padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Add,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(24.dp)
-                            )
-                            Spacer(Modifier.width(12.dp))
-                            Text("Utiliser un autre compte", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium)
-                        }
-                    } else {
-                        Column(modifier = Modifier.padding(top = 8.dp)) {
-                            OutlinedTextField(
-                                value = customName,
-                                onValueChange = { customName = it },
-                                label = { Text("Nom complet") },
-                                singleLine = true,
-                                shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                            Spacer(Modifier.height(8.dp))
-                            OutlinedTextField(
-                                value = customEmail,
-                                onValueChange = { customEmail = it },
-                                label = { Text("Adresse e-mail Google") },
-                                singleLine = true,
-                                shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                            Spacer(Modifier.height(12.dp))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.End
-                            ) {
-                                TextButton(onClick = { showCustomEmailField = false }) {
-                                    Text("Annuler")
-                                }
-                                Button(
-                                    onClick = {
-                                        if (customEmail.contains("@") && customName.isNotBlank()) {
-                                            val uid = "google_${customName.lowercase().replace(" ", "_")}"
-                                            viewModel.loginWithGoogle(uid, customEmail.trim(), customName.trim(), null)
-                                            showGoogleChooserFallback = false
-                                        }
-                                    },
-                                    enabled = customEmail.contains("@") && customName.isNotBlank()
-                                ) {
-                                    Text("Valider")
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {}
-        )
-    }
-
     if (showGoogleErrorDialog) {
         val sha1 = getAppSHA1(context)
         val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
@@ -1113,13 +1022,13 @@ fun SalaryTrackerApp(
                         modifier = Modifier.size(28.dp)
                     )
                     Spacer(Modifier.width(8.dp))
-                    Text("Problème de connexion Google", color = MaterialTheme.colorScheme.error)
+                    Text(stringResource(R.string.ma_google_problem), color = MaterialTheme.colorScheme.error)
                 }
             },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(
-                        text = "La connexion Google en direct a échoué (Code : $googleErrorCode).",
+                        text = stringResource(R.string.ma_google_failed_code, googleErrorCode),
                         fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.bodyMedium
                     )
@@ -1138,10 +1047,10 @@ fun SalaryTrackerApp(
                             .padding(12.dp)
                     ) {
                         Column {
-                            Text("Pour résoudre cela dans Firebase :", fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+                            Text(stringResource(R.string.ma_firebase_fix), fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
                             Spacer(Modifier.height(4.dp))
                             Text("1. Package : com.benjamin.salarytracker", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("2. Empreinte SHA-1 :", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(stringResource(R.string.ma_sha1_label), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Text(
                                 text = sha1,
                                 fontWeight = FontWeight.Bold,
@@ -1158,29 +1067,19 @@ fun SalaryTrackerApp(
                         Button(
                             onClick = {
                                 clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(sha1))
-                                Toast.makeText(context, "SHA-1 copié !", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, context.getString(R.string.ma_sha1_copied), Toast.LENGTH_SHORT).show()
                             },
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(8.dp)
                         ) {
-                            Text("Copier SHA-1", fontSize = 12.sp)
+                            Text(stringResource(R.string.ma_copy_sha1), fontSize = 12.sp)
                         }
                     }
                 }
             },
             confirmButton = {
-                Button(
-                    onClick = {
-                        showGoogleErrorDialog = false
-                        showGoogleChooserFallback = true
-                    }
-                ) {
-                    Text("Utiliser le simulateur")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showGoogleErrorDialog = false }) {
-                    Text("Fermer")
+                Button(onClick = { showGoogleErrorDialog = false }) {
+                    Text(stringResource(R.string.common_close))
                 }
             }
         )
@@ -1217,6 +1116,16 @@ fun getAppSHA1(context: android.content.Context): String {
         android.util.Log.e("MainActivity", "Failed to get SHA-1", e)
     }
     return "Indisponible"
+}
+
+/** Renvoie un contexte avec la locale forcée, ou inchangé si "system". */
+fun applyAppLocale(base: android.content.Context, lang: String): android.content.Context {
+    if (lang == "system" || lang.isBlank()) return base
+    val locale = java.util.Locale.forLanguageTag(lang)
+    java.util.Locale.setDefault(locale)
+    val config = android.content.res.Configuration(base.resources.configuration)
+    config.setLocale(locale)
+    return base.createConfigurationContext(config)
 }
 
 fun android.content.Context.findActivity(): android.app.Activity? {

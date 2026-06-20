@@ -21,6 +21,7 @@ class RemoteDataService(
     override fun getAutoRules(jobId: String): Flow<List<AutoEntryRule>> = fs.getAutoRules(jobId)
     override fun getPayslips(jobId: String): Flow<List<Payslip>> = fs.getPayslips(jobId)
     override fun getAppTheme(): Flow<String> = fs.getAppTheme()
+    override fun getAppLanguage(): Flow<String> = fs.getAppLanguage()
 
     override suspend fun addCompany(company: Company) = fs.addCompany(company)
     override suspend fun deleteCompany(companyId: String) = fs.deleteCompany(companyId)
@@ -47,6 +48,7 @@ class RemoteDataService(
     override suspend fun deletePayslip(jobId: String, payslipId: String) = fs.deletePayslip(jobId, payslipId)
 
     override suspend fun updateAppTheme(theme: String) = fs.updateAppTheme(theme)
+    override suspend fun updateAppLanguage(lang: String) = fs.updateAppLanguage(lang)
     override suspend fun saveGeminiApiKey(key: String) = fs.saveGeminiApiKey(key)
     override suspend fun getGeminiApiKey(): String? = fs.getGeminiApiKey()
 }

@@ -25,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -43,6 +44,7 @@ fun PayslipScreen(
     connectionStatus: ConnectionStatus,
     geminiApiKey: String,
     useLocalAi: Boolean = false,
+    isSubscribed: Boolean = false,
     onNeedGeminiKey: () -> Unit = {},
     onAddPayslip: (Payslip) -> Unit,
     onDeletePayslip: (String) -> Unit,
@@ -50,19 +52,19 @@ fun PayslipScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val ocr = remember(geminiApiKey) { OcrService(context, geminiApiKey) }
+    val ocr = remember(geminiApiKey, isSubscribed) { OcrService(context, geminiApiKey, useBackend = isSubscribed) }
     val localOcr = remember { LocalOcrService(context) }
     var analyzing by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf("") }
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris: List<Uri> ->
         if (uris.isNotEmpty()) {
-            // Aucun mode IA choisi → on ouvre la modal au lieu d'analyser.
-            if (!useLocalAi && geminiApiKey.isBlank()) {
+            // Aucun mode IA choisi → on ouvre la modal au lieu d'analyser (sauf abonnés).
+            if (!isSubscribed && !useLocalAi && geminiApiKey.isBlank()) {
                 onNeedGeminiKey()
                 return@rememberLauncherForActivityResult
             }
-            val analyzeLocally = useLocalAi || geminiApiKey.isBlank()
+            val analyzeLocally = !isSubscribed && (useLocalAi || geminiApiKey.isBlank())
             analyzing = true
             scope.launch {
                 val res = if (analyzeLocally) localOcr.extractPayslipData(uris) { status = it }
@@ -70,10 +72,10 @@ fun PayslipScreen(
                 when (res) {
                     is PayslipAnalysis.Success -> {
                         onAddPayslip(res.payslip)
-                        Toast.makeText(context, "Bulletin ajouté ✓", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, context.getString(R.string.ps_added), Toast.LENGTH_SHORT).show()
                     }
                     is PayslipAnalysis.Failure ->
-                        Toast.makeText(context, "Échec : ${res.reason}", Toast.LENGTH_LONG).show()
+                        Toast.makeText(context, context.getString(R.string.ps_failed, res.reason), Toast.LENGTH_LONG).show()
                 }
                 analyzing = false; status = ""
             }
@@ -92,8 +94,8 @@ fun PayslipScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(Modifier.weight(1f)) {
-                    Text("BULLETINS DE PAIE", color = InkMuted, fontSize = 11.sp, letterSpacing = 1.2.sp)
-                    Text("Estimé vs Réel", color = Ink, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.ps_header), color = InkMuted, fontSize = 11.sp, letterSpacing = 1.2.sp)
+                    Text(stringResource(R.string.ps_subtitle), color = Ink, fontSize = 24.sp, fontWeight = FontWeight.Bold)
                 }
                 SquareIconButton(Icons.Default.Close, onClick = onBack)
             }
@@ -106,12 +108,12 @@ fun PayslipScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.5.dp)
                         Spacer(Modifier.width(14.dp))
-                        Text(status.ifBlank { "Analyse en cours…" }, color = Ink, fontSize = 14.sp)
+                        Text(status.ifBlank { stringResource(R.string.ps_analyzing) }, color = Ink, fontSize = 14.sp)
                     }
                 }
             } else {
                 AppButton(
-                    text = "Importer un bulletin",
+                    text = stringResource(R.string.ps_import),
                     onClick = { picker.launch(arrayOf("image/*", "application/pdf")) },
                     leading = Icons.Default.UploadFile,
                     modifier = Modifier.fillMaxWidth()
@@ -127,12 +129,12 @@ fun PayslipScreen(
                 ) {
                     Icon(Icons.Default.Description, null, modifier = Modifier.size(56.dp), tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f))
                     Spacer(Modifier.height(16.dp))
-                    Text("Aucun bulletin", color = Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.ps_none), color = Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(6.dp))
-                    Text("Importe une photo ou un PDF de ta fiche de paie pour la comparer à l'estimation.", color = InkMuted, fontSize = 14.sp)
+                    Text(stringResource(R.string.ps_none_hint), color = InkMuted, fontSize = 14.sp)
                 }
             } else {
-                Text("${payslips.size} bulletin(s)", color = Ink, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.ps_count, payslips.size), color = Ink, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(10.dp))
                 payslips.forEachIndexed { index, p ->
                     val ym = p.yearMonth
@@ -163,7 +165,7 @@ private fun PayslipCard(
     val ecart = p.net - estNet
     val pct = if (estNet > 0) (ecart / estNet * 100) else 0.0
     val ecartColor = if (ecart >= 0) PosGreen else NegRed
-    val monthName = Month.of(p.month).getDisplayName(TextStyle.FULL, Locale.FRANCE).replaceFirstChar { it.uppercase() }
+    val monthName = Month.of(p.month).getDisplayName(TextStyle.FULL, Locale.getDefault()).replaceFirstChar { it.uppercase() }
 
     AppCard(
         padding = 16.dp,
@@ -179,13 +181,13 @@ private fun PayslipCard(
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text("$monthName ${p.year}", color = Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-                Text("Net réel ${fmtMoney(p.net)}", color = InkMuted, fontSize = 12.sp)
+                Text(stringResource(R.string.ps_real_net, fmtMoney(p.net)), color = InkMuted, fontSize = 12.sp)
             }
             Box(
                 modifier = Modifier.size(34.dp).clip(RoundedCornerShape(10.dp)).background(NegRed.copy(alpha = 0.10f)).clickable { onDelete(p.id) },
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Default.Close, "Supprimer", tint = NegRed, modifier = Modifier.size(16.dp))
+                Icon(Icons.Default.Close, stringResource(R.string.set_delete), tint = NegRed, modifier = Modifier.size(16.dp))
             }
         }
 
@@ -194,11 +196,11 @@ private fun PayslipCard(
         Spacer(Modifier.height(12.dp))
 
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            MiniCol("Estimé (App)", fmtMoney(estNet), InkMuted)
-            MiniCol("Réel (Bulletin)", fmtMoney(p.net), Ink)
+            MiniCol(stringResource(R.string.ps_estimated_app), fmtMoney(estNet), InkMuted)
+            MiniCol(stringResource(R.string.ps_real_slip), fmtMoney(p.net), Ink)
             MiniCol(
-                if (ecart >= 0) "Écart +" else "Écart",
-                "${if (ecart >= 0) "+" else ""}${fmtMoney(ecart)} (${String.format(Locale.FRANCE, "%+.0f", pct)}%)",
+                if (ecart >= 0) stringResource(R.string.ps_gap_plus) else stringResource(R.string.ps_gap),
+                "${if (ecart >= 0) "+" else ""}${fmtMoney(ecart)} (${String.format(Locale.getDefault(), "%+.0f", pct)}%)",
                 ecartColor
             )
         }
@@ -208,13 +210,13 @@ private fun PayslipCard(
             AppDivider()
             Spacer(Modifier.height(12.dp))
 
-            Text("COMPARAISON DÉTAILLÉE", color = InkMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp)
+            Text(stringResource(R.string.ps_detailed), color = InkMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp)
             Spacer(Modifier.height(12.dp))
 
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                ComparisonRow("Heures travaillées", fmtHours(estHours), fmtHours(p.heuresPayees), p.heuresPayees - estHours, isHours = true)
-                ComparisonRow("Salaire Brut", fmtMoney(estBrut), fmtMoney(p.brut), p.brut - estBrut)
-                ComparisonRow("Salaire Net", fmtMoney(estNet), fmtMoney(p.net), p.net - estNet)
+                ComparisonRow(stringResource(R.string.ps_hours_worked), fmtHours(estHours), fmtHours(p.heuresPayees), p.heuresPayees - estHours, isHours = true)
+                ComparisonRow(stringResource(R.string.ps_gross), fmtMoney(estBrut), fmtMoney(p.brut), p.brut - estBrut)
+                ComparisonRow(stringResource(R.string.ps_net), fmtMoney(estNet), fmtMoney(p.net), p.net - estNet)
             }
 
             val potentialLoss = estNet - p.net
@@ -231,7 +233,7 @@ private fun PayslipCard(
                         Icon(Icons.Default.Warning, null, tint = NegRed, modifier = Modifier.size(20.dp))
                         Spacer(Modifier.width(10.dp))
                         Text(
-                            text = "Sous-paiement potentiel de ${fmtMoney(potentialLoss)} sur ce bulletin.",
+                            text = stringResource(R.string.ps_underpay, fmtMoney(potentialLoss)),
                             color = NegRed,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold
@@ -251,7 +253,7 @@ private fun PayslipCard(
                         Icon(Icons.Default.Check, null, tint = PosGreen, modifier = Modifier.size(20.dp))
                         Spacer(Modifier.width(10.dp))
                         Text(
-                            text = "Bulletin de paie conforme ou supérieur aux estimations ✓",
+                            text = stringResource(R.string.ps_compliant),
                             color = PosGreen,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold
@@ -262,7 +264,7 @@ private fun PayslipCard(
         } else {
             Spacer(Modifier.height(10.dp))
             Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                Text("Toucher pour voir les détails ▾", color = MaterialTheme.colorScheme.primary, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                Text(stringResource(R.string.ps_tap_details), color = MaterialTheme.colorScheme.primary, fontSize = 11.sp, fontWeight = FontWeight.Medium)
             }
         }
     }
@@ -284,7 +286,7 @@ private fun ComparisonRow(
     val diffStr = when {
         diff > 0.01 -> if (isHours) "+${fmtHours(diff)}" else "+${fmtMoney(diff)}"
         diff < -0.01 -> if (isHours) fmtHours(diff) else fmtMoney(diff)
-        else -> "Conforme"
+        else -> stringResource(R.string.ps_compliant_short)
     }
 
     Column {
@@ -300,8 +302,8 @@ private fun ComparisonRow(
             modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text("App : $estim", color = InkMuted, fontSize = 11.sp)
-            Text("Réel : $reel", color = InkMuted, fontSize = 11.sp)
+            Text(stringResource(R.string.ps_app_val, estim), color = InkMuted, fontSize = 11.sp)
+            Text(stringResource(R.string.ps_real_val, reel), color = InkMuted, fontSize = 11.sp)
         }
     }
 }

@@ -19,6 +19,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -133,7 +134,7 @@ fun UpdateRequiredScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = "Mise à jour requise",
+                        text = stringResource(R.string.upd_title),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
@@ -143,7 +144,7 @@ fun UpdateRequiredScreen(
                     Spacer(modifier = Modifier.height(12.dp))
                     
                     Text(
-                        text = "Cette version de SalaryTracker n'est plus prise en charge. Téléchargez la dernière version pour continuer à utiliser l'application.",
+                        text = stringResource(R.string.upd_desc),
                         style = MaterialTheme.typography.bodyMedium,
                         lineHeight = 22.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -172,7 +173,7 @@ fun UpdateRequiredScreen(
                         )
                         Spacer(modifier = Modifier.width(10.dp))
                         Text(
-                            text = "Télécharger la version",
+                            text = stringResource(R.string.upd_download_version),
                             fontWeight = FontWeight.Bold,
                             fontSize = 15.sp
                         )
@@ -195,13 +196,13 @@ fun UpdateRequiredScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Warning,
-                                contentDescription = "Attention",
+                                contentDescription = stringResource(R.string.upd_warning_cd),
                                 tint = Color(0xFFF59E0B),
                                 modifier = Modifier.size(20.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "Attention : sauvegarde requise",
+                                text = stringResource(R.string.upd_backup_required),
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onBackground
@@ -211,7 +212,7 @@ fun UpdateRequiredScreen(
                         Spacer(modifier = Modifier.height(6.dp))
                         
                         Text(
-                            text = "Vous utilisez un compte local. Sauvegardez vos données maintenant pour pouvoir les réimporter après la mise à jour.",
+                            text = stringResource(R.string.upd_local_backup_desc),
                             style = MaterialTheme.typography.bodySmall,
                             lineHeight = 16.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -239,7 +240,7 @@ fun UpdateRequiredScreen(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "Télécharger mes données",
+                                text = stringResource(R.string.upd_download_data),
                                 fontWeight = FontWeight.SemiBold
                             )
                         }

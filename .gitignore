@@ -16,3 +16,9 @@ local.properties
 /keystore.properties
 *.jks
 *.keystore
+
+# APK builds (uploaded to GitHub releases, not versioned)
+*.apk
+
+# Firebase CLI cache
+.firebase/

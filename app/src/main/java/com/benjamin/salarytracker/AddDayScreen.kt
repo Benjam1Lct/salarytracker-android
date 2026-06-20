@@ -18,6 +18,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -65,9 +66,9 @@ fun AddDayScreen(
                         selectedDate = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()
                     }
                     showDatePicker = false
-                }) { Text("Confirmer") }
+                }) { Text(stringResource(R.string.common_confirm)) }
             },
-            dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text("Annuler") } }
+            dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text(stringResource(R.string.common_cancel)) } }
         ) {
             DatePicker(state = datePickerState)
         }
@@ -79,13 +80,13 @@ fun AddDayScreen(
                 title = {
                     Column {
                         Text(
-                            text = if (existingEntry != null && existingEntry.id.isNotEmpty()) "MODIFIER" else "ENREGISTRER",
+                            text = if (existingEntry != null && existingEntry.id.isNotEmpty()) stringResource(R.string.add_edit) else stringResource(R.string.add_save),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             letterSpacing = 1.2.sp
                         )
                         Text(
-                            text = if (existingEntry != null && existingEntry.id.isNotEmpty()) "Journée" else "Nouvelle journée",
+                            text = if (existingEntry != null && existingEntry.id.isNotEmpty()) stringResource(R.string.add_day_title) else stringResource(R.string.add_new_day),
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold
                         )
@@ -93,7 +94,7 @@ fun AddDayScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.Close, contentDescription = "Fermer")
+                        Icon(Icons.Default.Close, contentDescription = stringResource(R.string.common_close))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -119,7 +120,7 @@ fun AddDayScreen(
                         onImportFile(
                             it,
                             { count ->
-                                Toast.makeText(context, "Import réussi : $count journées ajoutées.", Toast.LENGTH_LONG).show()
+                                Toast.makeText(context, context.getString(R.string.add_import_success, count), Toast.LENGTH_LONG).show()
                             },
                             { err ->
                                 Toast.makeText(context, err, Toast.LENGTH_LONG).show()
@@ -129,7 +130,7 @@ fun AddDayScreen(
                 }
 
                 AppButton(
-                    text = "Importer l'historique (CSV/Texte/Image)",
+                    text = stringResource(R.string.add_import_btn),
                     onClick = { launcher.launch("*/*") },
                     leading = Icons.Default.ArrowUpward,
                     filled = false,
@@ -138,7 +139,7 @@ fun AddDayScreen(
             }
 
             // Date picker section
-            SectionLabel("Date de la journée")
+            SectionLabel(stringResource(R.string.add_date_label))
             Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(
                 value = selectedDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")),
@@ -151,7 +152,7 @@ fun AddDayScreen(
                     IconButton(onClick = { showDatePicker = true }) {
                         Icon(
                             Icons.Default.CalendarMonth,
-                            contentDescription = "Choisir une date",
+                            contentDescription = stringResource(R.string.add_pick_date),
                             tint = MaterialTheme.colorScheme.primary
                         )
                     }
@@ -170,10 +171,10 @@ fun AddDayScreen(
             Spacer(modifier = Modifier.height(20.dp))
 
             // Type de journée : travaillée ou congé/absence
-            SectionLabel("Type de journée")
+            SectionLabel(stringResource(R.string.add_day_type))
             Spacer(modifier = Modifier.height(8.dp))
             SegmentedToggle(
-                options = listOf("Travaillée", "Congé / absence"),
+                options = listOf(stringResource(R.string.add_worked), stringResource(R.string.entry_leave_absence)),
                 selected = if (isLeave) 1 else 0,
                 onSelect = { isLeave = it == 1 },
                 modifier = Modifier.fillMaxWidth()
@@ -183,7 +184,7 @@ fun AddDayScreen(
                 Spacer(modifier = Modifier.height(20.dp))
 
                 // Templates
-                SectionLabel("Templates rapides")
+                SectionLabel(stringResource(R.string.add_quick_templates))
                 TemplateChips(
                     templates = templates,
                     selectedTemplate = selectedTemplate,
@@ -199,20 +200,20 @@ fun AddDayScreen(
                 Spacer(modifier = Modifier.height(20.dp))
 
                 // Time inputs
-                SectionLabel("Horaires")
+                SectionLabel(stringResource(R.string.add_schedule))
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     TimePickerField(
-                        label = "Début",
+                        label = stringResource(R.string.add_start),
                         time = startTime,
                         onTimeChange = { startTime = it },
                         modifier = Modifier.weight(1f)
                     )
                     TimePickerField(
-                        label = "Fin",
+                        label = stringResource(R.string.add_end),
                         time = endTime,
                         onTimeChange = { endTime = it },
                         modifier = Modifier.weight(1f)
@@ -221,13 +222,13 @@ fun AddDayScreen(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                SectionLabel("Pauses")
+                SectionLabel(stringResource(R.string.add_breaks))
                 Spacer(modifier = Modifier.height(8.dp))
                 PauseManager(pauseBlocks)
             } else {
                 Spacer(modifier = Modifier.height(14.dp))
                 Text(
-                    "Journée non travaillée : elle ne sera pas comptée comme un déficit dans le livret.",
+                    stringResource(R.string.add_leave_info),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -238,7 +239,7 @@ fun AddDayScreen(
             Button(
                 onClick = {
                     if (!isLeave && !endTime.isAfter(startTime)) {
-                        Toast.makeText(context, "L'heure de fin doit être après le début", Toast.LENGTH_LONG).show()
+                        Toast.makeText(context, context.getString(R.string.add_end_after_start), Toast.LENGTH_LONG).show()
                     } else {
                         onAddEntry(
                             DayEntry(
@@ -262,7 +263,7 @@ fun AddDayScreen(
                 Icon(Icons.Default.Save, contentDescription = null)
                 Spacer(Modifier.width(8.dp))
                  Text(
-                    if (existingEntry != null && existingEntry.id.isNotEmpty()) "Mettre à jour" else "Valider la journée",
+                    if (existingEntry != null && existingEntry.id.isNotEmpty()) stringResource(R.string.add_update) else stringResource(R.string.add_validate),
                     style = MaterialTheme.typography.labelLarge
                 )
             }
@@ -284,7 +285,7 @@ fun AddDayScreen(
                 ) {
                     Icon(Icons.Default.Delete, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
-                    Text("Supprimer cette journée", style = MaterialTheme.typography.labelLarge)
+                    Text(stringResource(R.string.add_delete_day), style = MaterialTheme.typography.labelLarge)
                 }
             }
 
@@ -294,7 +295,7 @@ fun AddDayScreen(
                 modifier = Modifier.align(Alignment.CenterHorizontally)
             ) {
                 Text(
-                    "Gérer mes horaires types",
+                    stringResource(R.string.add_manage_templates),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary
                 )

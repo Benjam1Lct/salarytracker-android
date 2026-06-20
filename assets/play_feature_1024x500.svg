@@ -1,0 +1,46 @@
+<svg width="1024" height="500" viewBox="0 0 1024 500" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgf" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#F4F0FC"/>
+      <stop offset="1" stop-color="#E7DEF8"/>
+    </linearGradient>
+    <linearGradient id="badge" x1="0" y1="0" x2="108" y2="108" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8B7CF6"/>
+      <stop offset="1" stop-color="#6D5BD0"/>
+    </linearGradient>
+    <filter id="sh" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="16" stdDeviation="22" flood-color="#6D5BD0" flood-opacity="0.30"/>
+    </filter>
+    <clipPath id="round"><rect x="0" y="0" width="108" height="108" rx="25"/></clipPath>
+  </defs>
+
+  <rect width="1024" height="500" fill="url(#bgf)"/>
+
+  <!-- Bulles décoratives -->
+  <circle cx="900" cy="60" r="120" fill="#FFFFFF" opacity="0.35"/>
+  <circle cx="80" cy="450" r="90" fill="#FFFFFF" opacity="0.30"/>
+
+  <!-- Badge = vraie icône de l'app (jauge + €), 240x240 -->
+  <g filter="url(#sh)" transform="translate(120,130) scale(2.2222)">
+    <g clip-path="url(#round)">
+      <rect x="0" y="0" width="108" height="108" fill="url(#badge)"/>
+      <path d="M108,0 A55,55 0 0 1 108,55 L108,0 Z" fill="#FFFFFF" fill-opacity="0.094"/>
+      <g transform="translate(54,54) scale(0.8) translate(-54,-54)" fill="none" stroke-linecap="round">
+        <path d="M26.3,70 A32,32 0 1,1 81.7,70" stroke="#FFFFFF" stroke-opacity="0.2" stroke-width="6"/>
+        <path d="M26.3,70 A32,32 0 0,1 77.8,32.6" stroke="#FFFFFF" stroke-width="6"/>
+        <circle cx="77.8" cy="32.6" r="4.5" fill="#FFFFFF" stroke="none"/>
+        <path d="M64.4,48 A12,12 0 1,0 64.4,60" stroke="#FFFFFF" stroke-width="5"/>
+        <path d="M41,50 H64" stroke="#FFFFFF" stroke-width="4.5"/>
+        <path d="M41,57 H64" stroke="#FFFFFF" stroke-width="4.5"/>
+      </g>
+    </g>
+  </g>
+
+  <!-- Texte -->
+  <text x="398" y="222" font-family="Arial, Helvetica, sans-serif"
+        font-size="72" font-weight="800" fill="#2B2150">SalaryTracker</text>
+  <text x="400" y="284" font-family="Arial, Helvetica, sans-serif"
+        font-size="29" font-weight="500" fill="#6D5BD0">Suivez vos heures.</text>
+  <text x="400" y="328" font-family="Arial, Helvetica, sans-serif"
+        font-size="29" font-weight="500" fill="#6D5BD0">Estimez votre salaire en temps réel.</text>
+</svg>

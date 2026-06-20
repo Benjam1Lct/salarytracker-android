@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -35,6 +36,7 @@ import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import java.util.Locale
+import androidx.compose.ui.text.style.TextAlign
 
 @Composable
 fun DashboardScreen(
@@ -48,6 +50,7 @@ fun DashboardScreen(
     onSettings: () -> Unit,
     onUpdateTarget: (Double) -> Unit,
     connectionStatus: ConnectionStatus,
+    isSubscribed: Boolean = false,
     onSeeAll: () -> Unit = {},
     isRefreshing: Boolean = false,
     onRefresh: () -> Unit = {},
@@ -65,6 +68,79 @@ fun DashboardScreen(
     val stats = SalaryCalculator.calculateMonthStats(job, entries, YearMonth.now())
     val contrat = SalaryCalculator.calculateContractSummary(job, entries)
 
+    val today = LocalDate.now()
+    val currentMonth = YearMonth.now()
+    
+    // Filtrer les entrées du mois en cours
+    val currentMonthEntries = entries.filter {
+        it.date.year == currentMonth.year && it.date.monthValue == currentMonth.monthValue
+    }
+    
+    // Compter les journées réellement travaillées
+    val daysWorkedThisMonth = currentMonthEntries.count { it.totalHours > 0 && !it.isLeave }
+    
+    // Taux net moyen gagné par jour travaillé ce mois-ci
+    val averageNetPerDay = if (daysWorkedThisMonth > 0) stats.salaireNetEstime / daysWorkedThisMonth else 0.0
+    
+    // Estimation d'un taux journalier par défaut
+    val defaultDailyNet = job.hourlyRateBrut * 7.0 * 0.78
+    val dailyNetRate = if (averageNetPerDay > 0.0) averageNetPerDay else defaultDailyNet
+    
+    // Somme restante pour atteindre l'objectif
+    val remainingNet = (job.targetMonthlySalary - stats.salaireNetEstime).coerceAtLeast(0.0)
+    
+    // Calcul de la date de projection
+    val targetReachable = stats.salaireNetEstime >= job.targetMonthlySalary
+    var targetDateText = ""
+    var targetWarningText: String? = null
+    var targetColor: Color = MaterialTheme.colorScheme.primary
+
+    if (targetReachable) {
+        targetDateText = stringResource(R.string.dash_target_reached)
+        targetColor = Color(0xFF10B981) // Vert
+    } else if (dailyNetRate <= 0.1) {
+        targetDateText = stringResource(R.string.dash_no_daily_rate)
+        targetWarningText = stringResource(R.string.dash_set_hourly)
+        targetColor = InkMuted
+    } else {
+        val remainingDaysNeeded = Math.ceil(remainingNet / dailyNetRate).toInt()
+
+        // Trouver la date en ajoutant uniquement les jours de la semaine (lundi-vendredi) à partir de demain
+        var projectDate = today
+        var daysCounted = 0
+        while (daysCounted < remainingDaysNeeded) {
+            projectDate = projectDate.plusDays(1)
+            if (projectDate.dayOfWeek.value in 1..5) {
+                daysCounted++
+            }
+        }
+
+        val formatter = DateTimeFormatter.ofPattern("dd MMMM yyyy", Locale.getDefault())
+        val formattedDate = projectDate.format(formatter)
+        targetDateText = stringResource(R.string.dash_target_estimated_on, formattedDate)
+
+        val endOfContract = job.endDate
+        if (endOfContract != null) {
+            val isBeforeEndOfContract = !projectDate.isAfter(endOfContract)
+            if (!isBeforeEndOfContract) {
+                targetColor = Color(0xFFEF4444) // Rouge
+                val endFormatted = endOfContract.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+                targetWarningText = stringResource(R.string.dash_unreachable_contract, endFormatted)
+            } else {
+                targetColor = MaterialTheme.colorScheme.primary
+            }
+        } else {
+            val lastDayOfThisMonth = currentMonth.atEndOfMonth()
+            val isBeforeEndOfMonth = !projectDate.isAfter(lastDayOfThisMonth)
+            if (!isBeforeEndOfMonth) {
+                targetColor = Color(0xFFEF4444) // Rouge
+                targetWarningText = stringResource(R.string.dash_unreachable_month)
+            } else {
+                targetColor = MaterialTheme.colorScheme.primary
+            }
+        }
+    }
+
     var showTargetDialog by remember { mutableStateOf(false) }
     var showCalendarView by remember { mutableStateOf(false) }
 
@@ -80,7 +156,7 @@ fun DashboardScreen(
                         status = connectionStatus,
                         modifier = Modifier.padding(bottom = 12.dp)
                     )
-                    HeaderBar(job, onSelectJob, onSettings)
+                    HeaderBar(job, onSelectJob, onSettings, isSubscribed)
                 }
             }
 
@@ -118,17 +194,45 @@ fun DashboardScreen(
                 Appear(80) {
                     val progress = (stats.salaireNetEstime / job.targetMonthlySalary.coerceAtLeast(1.0)).toFloat()
                     ArcGaugeCard(
-                        title = "APERÇU OBJECTIF",
-                        leftLabel = "Gagné",
+                        title = stringResource(R.string.dash_goal_overview),
+                        leftLabel = stringResource(R.string.dash_earned),
                         leftValue = euro(stats.salaireNetEstime),
-                        rightLabel = "Restant",
+                        rightLabel = stringResource(R.string.dash_remaining),
                         rightValue = euro((job.targetMonthlySalary - stats.salaireNetEstime).coerceAtLeast(0.0)),
-                        centerLabel = "Objectif",
+                        centerLabel = stringResource(R.string.dash_goal),
                         centerValue = fmtMoney(job.targetMonthlySalary),
                         progress = progress,
                         onAction = { showTargetDialog = true },
                         dark = false,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        bottomContent = {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                                    .padding(12.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    text = targetDateText,
+                                    color = targetColor,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    textAlign = TextAlign.Center
+                                )
+                                if (targetWarningText != null) {
+                                    Spacer(Modifier.height(4.dp))
+                                    Text(
+                                        text = targetWarningText!!,
+                                        color = if (targetColor == Color(0xFFEF4444)) Color(0xFFEF4444) else Color(0xFFF59E0B),
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
+                            }
+                        }
                     )
                 }
             }
@@ -136,8 +240,8 @@ fun DashboardScreen(
             item {
                 Appear(160) {
                     Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                        MiniCard("Brut base", euro(stats.salaireBrutBase), Modifier.weight(1f))
-                        MiniCard("Livret", fmtHours(stats.soldeLivretTotal), Modifier.weight(1f))
+                        MiniCard(stringResource(R.string.dash_base_gross), euro(stats.salaireBrutBase), Modifier.weight(1f))
+                        MiniCard(stringResource(R.string.dash_hours_bank), fmtHours(stats.soldeLivretTotal), Modifier.weight(1f))
                     }
                 }
             }
@@ -148,12 +252,12 @@ fun DashboardScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Historique", color = Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.dash_history), color = Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         IconButton(onClick = { showCalendarView = false }) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.FormatListBulleted,
-                                contentDescription = "Liste",
+                                contentDescription = stringResource(R.string.dash_list),
                                 tint = if (!showCalendarView) MaterialTheme.colorScheme.primary else InkMuted,
                                 modifier = Modifier.size(20.dp)
                             )
@@ -161,7 +265,7 @@ fun DashboardScreen(
                         IconButton(onClick = { showCalendarView = true }) {
                             Icon(
                                 imageVector = Icons.Default.CalendarMonth,
-                                contentDescription = "Calendrier",
+                                contentDescription = stringResource(R.string.dash_calendar),
                                 tint = if (showCalendarView) MaterialTheme.colorScheme.primary else InkMuted,
                                 modifier = Modifier.size(20.dp)
                             )
@@ -172,7 +276,7 @@ fun DashboardScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier.clip(RoundedCornerShape(50)).clickable { onSeeAll() }.padding(horizontal = 6.dp, vertical = 4.dp)
                             ) {
-                                Text("Voir tout", color = MaterialTheme.colorScheme.primary, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                                Text(stringResource(R.string.dash_see_all), color = MaterialTheme.colorScheme.primary, fontSize = 13.sp, fontWeight = FontWeight.Medium)
                                 Icon(Icons.Default.ChevronRight, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                             }
                         }
@@ -201,11 +305,11 @@ fun DashboardScreen(
                 if (entries.isEmpty()) {
                     item {
                         Box(Modifier.fillMaxWidth().padding(vertical = 40.dp), contentAlignment = Alignment.Center) {
-                            Text("Aucune journée. Touchez + pour commencer.", color = InkMuted, fontSize = 14.sp)
+                            Text(stringResource(R.string.dash_no_entries), color = InkMuted, fontSize = 14.sp)
                         }
                     }
                 } else {
-                    items(entries.sortedByDescending { it.date }.take(15), key = { it.id }) { entry ->
+                    items(entries.sortedByDescending { it.date }.take(7), key = { it.id }) { entry ->
                         EntryRow(entry, onClick = { onEditEntry(entry) }, hourlyRateBrut = job.hourlyRateBrut)
                     }
                 }
@@ -225,16 +329,16 @@ fun DashboardScreen(
 // ── Header ────────────────────────────────────────────────────────────────────
 
 @Composable
-private fun HeaderBar(job: Job, onSelectJob: () -> Unit, onSettings: () -> Unit) {
+private fun HeaderBar(job: Job, onSelectJob: () -> Unit, onSettings: () -> Unit, isSubscribed: Boolean) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(Modifier.weight(1f)) {
-            Text("EMPLOI", color = InkMuted, fontSize = 11.sp, letterSpacing = 1.2.sp)
+            Text(stringResource(R.string.dash_job), color = InkMuted, fontSize = 11.sp, letterSpacing = 1.2.sp)
             Text(job.name, color = Ink, fontSize = 20.sp, fontWeight = FontWeight.Bold)
         }
-        SquareIconButton(Icons.Default.Settings, onClick = onSettings, active = false)
+        ProfileIconButton(isSubscribed = isSubscribed, onClick = onSettings)
         Spacer(Modifier.width(10.dp))
         SquareIconButton(Icons.Default.Work, onClick = onSelectJob, active = true)
     }
@@ -303,33 +407,33 @@ private fun ContractCard(start: LocalDate?, end: LocalDate, contrat: SalaryCalcu
         Column {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
                 Column {
-                    SectionLabelMini("CONTRAT", color = OnWidgetMut)
+                    SectionLabelMini(stringResource(R.string.dash_contract), color = OnWidgetMut)
                     Spacer(Modifier.height(6.dp))
                     Text("${(progress * 100).toInt()},${((progress * 1000).toInt() % 10)} %", color = OnWidget, fontSize = 34.sp, fontWeight = FontWeight.Bold)
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     Text("$daysLeft", color = OnWidget, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                    Text("jours restants", color = OnWidgetMut, fontSize = 12.sp)
+                    Text(stringResource(R.string.dash_days_left), color = OnWidgetMut, fontSize = 12.sp)
                 }
             }
             Spacer(Modifier.height(14.dp))
             TickBarDark(progress = progress, modifier = Modifier.fillMaxWidth())
             Spacer(Modifier.height(6.dp))
             Text(
-                text = "Progression temporelle du contrat (temps écoulé)",
+                text = stringResource(R.string.dash_contract_progress),
                 color = OnWidgetMut,
                 fontSize = 11.sp,
                 style = MaterialTheme.typography.bodySmall
             )
             Spacer(Modifier.height(12.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                LegendDot(Color.White, "$elapsedDays", "Jours écoulés")
-                LegendDot(MaterialTheme.colorScheme.primary, "$elapsedWeeks", "Semaines")
-                LegendDot(OnWidgetMut, fmtHours(contrat.totalHeuresReelles), "Heures")
+                LegendDot(Color.White, "$elapsedDays", stringResource(R.string.dash_days_elapsed))
+                LegendDot(MaterialTheme.colorScheme.primary, "$elapsedWeeks", stringResource(R.string.dash_weeks))
+                LegendDot(OnWidgetMut, fmtHours(contrat.totalHeuresReelles), stringResource(R.string.dash_hours_label))
             }
             Spacer(Modifier.height(16.dp))
             AppButton(
-                text = "AJOUTER UNE JOURNÉE",
+                text = stringResource(R.string.dash_add_day),
                 onClick = onAdd,
                 leading = Icons.Default.Add,
                 modifier = Modifier.fillMaxWidth()
@@ -401,19 +505,19 @@ private fun TargetDialog(current: Double, onConfirm: (Double) -> Unit, onDismiss
             interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null
         ) {}) {
             AppCard(padding = 22.dp) {
-                Text("Objectif mensuel", color = Ink, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.dash_monthly_goal), color = Ink, fontSize = 17.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(14.dp))
                 AppTextField(
                     value = input,
                     onValueChange = { input = it.filter { c -> c.isDigit() } },
-                    placeholder = "Montant (€)",
+                    placeholder = stringResource(R.string.dash_amount),
                     keyboardType = KeyboardType.Number,
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(Modifier.height(18.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    AppButton("Annuler", onClick = onDismiss, filled = false, modifier = Modifier.weight(1f))
-                    AppButton("Confirmer", onClick = { input.toDoubleOrNull()?.let { if (it > 0) onConfirm(it) } }, modifier = Modifier.weight(1f))
+                    AppButton(stringResource(R.string.common_cancel), onClick = onDismiss, filled = false, modifier = Modifier.weight(1f))
+                    AppButton(stringResource(R.string.common_confirm), onClick = { input.toDoubleOrNull()?.let { if (it > 0) onConfirm(it) } }, modifier = Modifier.weight(1f))
                 }
             }
         }
@@ -430,7 +534,7 @@ private fun CalendarView(
     modifier: Modifier = Modifier
 ) {
     var currentMonth by remember { mutableStateOf(YearMonth.now()) }
-    val formatter = remember { DateTimeFormatter.ofPattern("MMMM yyyy", Locale.FRANCE) }
+    val formatter = remember { DateTimeFormatter.ofPattern("MMMM yyyy", Locale.getDefault()) }
 
     val daysInMonth = currentMonth.lengthOfMonth()
     val firstDayOfWeek = currentMonth.atDay(1).dayOfWeek.value // 1 = Lun, 7 = Dim
@@ -465,7 +569,12 @@ private fun CalendarView(
 
             // Weekdays Header
             Row(modifier = Modifier.fillMaxWidth()) {
-                val headers = listOf("Lu", "Ma", "Me", "Je", "Ve", "Sa", "Di")
+                val headers = listOf(
+                    stringResource(R.string.dash_wd_mon), stringResource(R.string.dash_wd_tue),
+                    stringResource(R.string.dash_wd_wed), stringResource(R.string.dash_wd_thu),
+                    stringResource(R.string.dash_wd_fri), stringResource(R.string.dash_wd_sat),
+                    stringResource(R.string.dash_wd_sun)
+                )
                 headers.forEach { h ->
                     Text(
                         text = h,
@@ -538,9 +647,9 @@ private fun CalendarView(
                                     )
                                     if (entry != null) {
                                         val hrs = entry.totalHours
-                                        val hrsStr = if (hrs == hrs.toLong().toDouble()) "${hrs.toLong()}" else String.format(Locale.FRANCE, "%.1f", hrs)
+                                        val hrsStr = if (hrs == hrs.toLong().toDouble()) "${hrs.toLong()}" else String.format(Locale.getDefault(), "%.1f", hrs)
                                         Text(
-                                            text = if (entry.isLeave) "Congé" else "${hrsStr}h",
+                                            text = if (entry.isLeave) stringResource(R.string.common_leave) else "${hrsStr}h",
                                             color = cellTextColor.copy(alpha = 0.8f),
                                             fontSize = 9.sp,
                                             maxLines = 1
@@ -603,7 +712,7 @@ private fun ImportStatusCard(
             androidx.compose.material3.Text(
                 text = when (status) {
                     is ImportStatus.InProgress -> status.message
-                    is ImportStatus.Success -> "${status.count} journée(s) importée(s) ✓"
+                    is ImportStatus.Success -> stringResource(R.string.dash_imported, status.count)
                     is ImportStatus.Error -> status.message
                     else -> ""
                 },
@@ -614,7 +723,7 @@ private fun ImportStatusCard(
             )
             if (status is ImportStatus.Success || status is ImportStatus.Error) {
                 androidx.compose.material3.IconButton(onClick = onDismiss, modifier = androidx.compose.ui.Modifier.size(24.dp)) {
-                    androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Default.Close, "Fermer", tint = fg, modifier = androidx.compose.ui.Modifier.size(16.dp))
+                    androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Default.Close, stringResource(R.string.common_close), tint = fg, modifier = androidx.compose.ui.Modifier.size(16.dp))
                 }
             }
         }
@@ -716,7 +825,7 @@ private fun SessionTrackerRow(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "MA JOURNÉE",
+                        text = stringResource(R.string.dash_my_day),
                         color = OnWidgetMut,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
@@ -753,13 +862,13 @@ private fun SessionTrackerRow(
                             )
                             Spacer(Modifier.height(8.dp))
                             Text(
-                                text = "Enregistrée",
+                                text = stringResource(R.string.dash_recorded),
                                 color = OnWidget,
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = "Aujourd'hui",
+                                text = stringResource(R.string.common_today),
                                 color = OnWidgetMut,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Medium
@@ -783,7 +892,7 @@ private fun SessionTrackerRow(
                             )
                             Spacer(Modifier.height(8.dp))
                             Text(
-                                text = "Débuter journée",
+                                text = stringResource(R.string.dash_start_day),
                                 color = OnWidget,
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Medium
@@ -807,13 +916,13 @@ private fun SessionTrackerRow(
                         )
                         Spacer(Modifier.height(4.dp))
                         Text(
-                            text = "+${euro(earningsBrut)} brut",
+                            text = stringResource(R.string.dash_plus_gross, euro(earningsBrut)),
                             color = OnWidgetMut,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium
                         )
                         Text(
-                            text = "+${euro(earningsNet)} net",
+                            text = stringResource(R.string.dash_plus_net, euro(earningsNet)),
                             color = Color(0xFF4CAF50),
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold
@@ -854,7 +963,7 @@ private fun SessionTrackerRow(
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Icon(Icons.Default.Stop, null, modifier = Modifier.size(14.dp), tint = Color.White)
                                     Spacer(Modifier.width(4.dp))
-                                    Text("Terminer", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    Text(stringResource(R.string.dash_finish), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
@@ -877,7 +986,7 @@ private fun SessionTrackerRow(
                                 contentPadding = PaddingValues(0.dp),
                                 shape = RoundedCornerShape(12.dp)
                             ) {
-                                Text("Sûr ?", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text(stringResource(R.string.common_sure), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
 
                             // Keep workday
@@ -891,7 +1000,7 @@ private fun SessionTrackerRow(
                                 contentPadding = PaddingValues(0.dp),
                                 shape = RoundedCornerShape(12.dp)
                             ) {
-                                Text("Non", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text(stringResource(R.string.common_no), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     } else if (confirmEnd) {
@@ -910,7 +1019,7 @@ private fun SessionTrackerRow(
                                 contentPadding = PaddingValues(0.dp),
                                 shape = RoundedCornerShape(12.dp)
                             ) {
-                                Text("Non", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text(stringResource(R.string.common_no), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
 
                             // Confirm ending / Save
@@ -927,7 +1036,7 @@ private fun SessionTrackerRow(
                                 contentPadding = PaddingValues(0.dp),
                                 shape = RoundedCornerShape(12.dp)
                             ) {
-                                Text("Sûr ?", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text(stringResource(R.string.common_sure), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
@@ -964,7 +1073,7 @@ private fun SessionTrackerRow(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "PAUSE",
+                        text = stringResource(R.string.dash_break),
                         color = OnWidgetMut.copy(alpha = cardAlpha),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
@@ -997,7 +1106,7 @@ private fun SessionTrackerRow(
                         )
                         Spacer(Modifier.height(8.dp))
                         Text(
-                            text = "Pause",
+                            text = stringResource(R.string.dash_break_label),
                             color = OnWidgetMut.copy(alpha = if (hasEntryToday) 0.25f else 0.5f),
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Medium
@@ -1014,13 +1123,13 @@ private fun SessionTrackerRow(
                         )
                         Spacer(Modifier.height(4.dp))
                         Text(
-                            text = "Pause active...",
+                            text = stringResource(R.string.dash_break_active),
                             color = Color(0xFFFF9800),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium
                         )
                         Text(
-                            text = "Cumulé : ${totalPauseMin}m",
+                            text = stringResource(R.string.dash_break_cumulated, totalPauseMin),
                             color = OnWidgetMut,
                             fontSize = 11.sp
                         )
@@ -1033,14 +1142,14 @@ private fun SessionTrackerRow(
                         )
                         Spacer(Modifier.height(8.dp))
                         Text(
-                            text = "Débuter pause",
+                            text = stringResource(R.string.dash_start_break),
                             color = OnWidget,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Medium
                         )
                         if (totalPauseMs > 0) {
                             Text(
-                                text = "Déjà pris : ${totalPauseMs / 60000}m",
+                                text = stringResource(R.string.dash_break_taken, totalPauseMs / 60000),
                                 color = OnWidgetMut,
                                 fontSize = 11.sp
                             )
@@ -1064,7 +1173,7 @@ private fun SessionTrackerRow(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.Stop, null, modifier = Modifier.size(14.dp), tint = Color.White)
                             Spacer(Modifier.width(4.dp))
-                            Text("Reprendre", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.dash_resume), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 } else if (isWorkdayRunning) {
@@ -1083,7 +1192,7 @@ private fun SessionTrackerRow(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.LocalCafe, null, modifier = Modifier.size(14.dp), tint = Color.White)
                             Spacer(Modifier.width(4.dp))
-                            Text("Faire une pause", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.dash_take_break), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }

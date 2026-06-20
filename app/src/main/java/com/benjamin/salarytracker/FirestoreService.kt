@@ -13,6 +13,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.time.LocalDate
 import java.time.LocalTime
+import java.time.format.DateTimeFormatter
 
 /**
  * Couche de persistance basée sur Firebase **Realtime Database**.
@@ -32,9 +33,10 @@ class FirestoreService {
             try {
                 FirebaseDatabase.getInstance(dbUrl).goOnline()
             } catch (_: Exception) {}
-            // Reset après 5 secondes pour laisser le listener Firebase prendre le relais
+            // Reset après 2,5 s : laisse le listener Firebase prendre le relais,
+            // puis le flow relit l'état réel (évite de rester bloqué sur "Connexion...").
             kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
-                delay(5000)
+                delay(2500)
                 forcedStatus.value = null
             }
         }
@@ -100,26 +102,48 @@ class FirestoreService {
         var wasConnected = false
         var currentStatus = ConnectionStatus.CONNECTING
         var dropJob: kotlinx.coroutines.Job? = null
+        // Suit la présence réelle d'un réseau (Wi-Fi/data) d'après l'OS.
+        // Une coupure Firebase (socket idle) ne doit PAS être traitée comme "hors ligne"
+        // tant que l'OS rapporte un réseau actif.
+        var hasNetwork = true
 
         fun updateStatus(newStatus: ConnectionStatus) {
             currentStatus = newStatus
             trySend(newStatus)
         }
 
+        val ref = db.getReference(".info/connected")
+
+        var sawForced = false
         val forcedJob = launch {
             forcedStatus.collect { forced ->
                 if (forced != null) {
+                    sawForced = true
                     if (forced == ConnectionStatus.CONNECTING) {
                         initialSlow.cancel()
                         initialOffline.cancel()
                         dropJob?.cancel()
                     }
                     updateStatus(forced)
+                } else if (sawForced) {
+                    // Fin du forçage (ex: reconnexion) → on relit l'état réel actuel
+                    // car le listener .info/connected ne refire pas si la valeur n'a pas changé.
+                    sawForced = false
+                    try {
+                        val snap = ref.get().await()
+                        val connected = snap.getValue(Boolean::class.java) ?: false
+                        if (connected) {
+                            wasConnected = true
+                            updateStatus(ConnectionStatus.CONNECTED)
+                        } else {
+                            updateStatus(ConnectionStatus.OFFLINE)
+                        }
+                    } catch (_: Exception) {
+                        updateStatus(ConnectionStatus.OFFLINE)
+                    }
                 }
             }
         }
-
-        val ref = db.getReference(".info/connected")
         val firebaseListener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val connected = snapshot.getValue(Boolean::class.java) ?: false
@@ -128,11 +152,16 @@ class FirestoreService {
                     wasConnected = true
                     updateStatus(ConnectionStatus.CONNECTED)
                 } else if (wasConnected) {
-                    // La connexion a chuté → étape "instable", puis hors-ligne si ça persiste
+                    // La connexion Firebase a chuté → étape "instable".
+                    // On ne bascule en "hors ligne" QUE si l'OS confirme l'absence de réseau ;
+                    // sinon c'est juste une socket idle qui se reconnectera (on reste "instable").
                     if (currentStatus == ConnectionStatus.CONNECTED) {
                         updateStatus(ConnectionStatus.SLOW)
                         dropJob?.cancel()
-                        dropJob = launch { delay(6000); updateStatus(ConnectionStatus.OFFLINE) }
+                        dropJob = launch {
+                            delay(6000)
+                            if (!hasNetwork) updateStatus(ConnectionStatus.OFFLINE)
+                        }
                     }
                 }
             }
@@ -144,6 +173,7 @@ class FirestoreService {
         val connectivityManager = SalaryApp.instance.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
         val networkCallback = object : android.net.ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: android.net.Network) {
+                hasNetwork = true
                 // Si le réseau revient alors qu'on était hors-ligne ou instable, on affiche "Connexion en cours..."
                 // pendant que Firebase négocie sa reconnexion en tâche de fond.
                 if (currentStatus == ConnectionStatus.OFFLINE || currentStatus == ConnectionStatus.SLOW) {
@@ -152,9 +182,19 @@ class FirestoreService {
                 }
             }
             override fun onLost(network: android.net.Network) {
-                // Dès que le système d'exploitation signale la perte totale de réseau, on bascule direct en offline
-                initialSlow.cancel(); initialOffline.cancel(); dropJob?.cancel()
-                updateStatus(ConnectionStatus.OFFLINE)
+                // Vérifie qu'il ne reste AUCUN réseau actif (le système peut juste basculer
+                // Wi-Fi ↔ data sans réelle perte de connectivité).
+                val stillConnected = try {
+                    val active = connectivityManager?.activeNetwork
+                    val caps = active?.let { connectivityManager.getNetworkCapabilities(it) }
+                    caps?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+                } catch (_: Exception) { false }
+                hasNetwork = stillConnected
+                if (!stillConnected) {
+                    // Perte totale de réseau confirmée par l'OS → hors ligne immédiat.
+                    initialSlow.cancel(); initialOffline.cancel(); dropJob?.cancel()
+                    updateStatus(ConnectionStatus.OFFLINE)
+                }
             }
         }
 
@@ -381,6 +421,26 @@ class FirestoreService {
         userRef.child("settings").updateChildren(updates).await()
     }
 
+    fun getAppLanguage(): Flow<String> = callbackFlow {
+        val ref = userRef.child("settings").child("appLanguage")
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                trySend(snapshot.getValue(String::class.java) ?: "system")
+            }
+            override fun onCancelled(error: DatabaseError) { close(error.toException()) }
+        }
+        ref.addValueEventListener(listener)
+        awaitClose { ref.removeEventListener(listener) }
+    }
+
+    suspend fun updateAppLanguage(lang: String, updatedAt: Long = System.currentTimeMillis()) {
+        val updates = mapOf(
+            "appLanguage" to lang,
+            "appLanguageUpdatedAt" to updatedAt
+        )
+        userRef.child("settings").updateChildren(updates).await()
+    }
+
     suspend fun saveGeminiApiKey(key: String, updatedAt: Long = System.currentTimeMillis()) {
         val updates = mapOf(
             "geminiApiKey" to key,
@@ -427,19 +487,74 @@ class FirestoreService {
 
 // ─── Helpers de lecture (Realtime DB renvoie Long/Double indifféremment) ──────
 
-private fun DataSnapshot.str(key: String): String? =
-    child(key).getValue(String::class.java)
+private fun DataSnapshot.str(key: String): String? {
+    val value = child(key).value ?: return null
+    return if (value is Map<*,*>) null else value.toString()
+}
 
-private fun DataSnapshot.dbl(key: String): Double? =
-    child(key).getValue(Double::class.java)
-        ?: child(key).getValue(Long::class.java)?.toDouble()
+private fun DataSnapshot.dbl(key: String): Double? {
+    val value = child(key).value ?: return null
+    return when (value) {
+        is Number -> value.toDouble()
+        is String -> value.toDoubleOrNull()
+        else -> null
+    }
+}
 
-private fun DataSnapshot.lng(key: String): Long? =
-    child(key).getValue(Long::class.java)
-        ?: child(key).getValue(Double::class.java)?.toLong()
+private fun DataSnapshot.lng(key: String): Long? {
+    val value = child(key).value ?: return null
+    return when (value) {
+        is Number -> value.toLong()
+        is String -> value.toLongOrNull()
+        else -> null
+    }
+}
 
-private fun DataSnapshot.bool(key: String): Boolean? =
-    child(key).getValue(Boolean::class.java)
+private fun DataSnapshot.bool(key: String): Boolean? {
+    val value = child(key).value ?: return null
+    return when (value) {
+        is Boolean -> value
+        is String -> value.lowercase().toBooleanStrictOrNull()
+        is Number -> value.toInt() != 0
+        else -> null
+    }
+}
+
+private fun safeParseDate(str: String?): LocalDate? {
+    if (str.isNullOrBlank() || str == "null") return null
+    try {
+        return LocalDate.parse(str)
+    } catch (_: Exception) {}
+    try {
+        val formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+        return LocalDate.parse(str, formatter)
+    } catch (_: Exception) {}
+    try {
+        val formatter = DateTimeFormatter.ofPattern("d/M/yyyy")
+        return LocalDate.parse(str, formatter)
+    } catch (_: Exception) {}
+    return null
+}
+
+private fun safeParseTime(str: String?): LocalTime? {
+    if (str.isNullOrBlank() || str == "null") return null
+    try {
+        return LocalTime.parse(str)
+    } catch (_: Exception) {}
+    try {
+        val formatter = DateTimeFormatter.ofPattern("H:mm")
+        return LocalTime.parse(str, formatter)
+    } catch (_: Exception) {}
+    try {
+        val formatter = DateTimeFormatter.ofPattern("HH:mm")
+        return LocalTime.parse(str, formatter)
+    } catch (_: Exception) {}
+    try {
+        val formatter = DateTimeFormatter.ofPattern("H:m")
+        return LocalTime.parse(str, formatter)
+    } catch (_: Exception) {}
+    return null
+}
 
 // ─── Conversions ─────────────────────────────────────────────────────────────
 
@@ -464,8 +579,8 @@ fun DataSnapshot.toJob(): Job? {
             livretThreshold = dbl("livretThreshold") ?: 43.0,
             soldeLivretHeures = dbl("soldeLivretHeures") ?: 0.0,
             targetMonthlySalary = dbl("targetMonthlySalary") ?: 3000.0,
-            startDate = str("startDate")?.let { LocalDate.parse(it) },
-            endDate = str("endDate")?.let { LocalDate.parse(it) },
+            startDate = str("startDate")?.let { safeParseDate(it) },
+            endDate = str("endDate")?.let { safeParseDate(it) },
             isMainJob = bool("isMainJob") ?: false,
             isArchived = bool("isArchived") ?: false
         )
@@ -474,12 +589,15 @@ fun DataSnapshot.toJob(): Job? {
 
 fun DataSnapshot.toDayEntry(jobId: String): DayEntry? {
     return try {
+        val dateVal = str("date")?.let { safeParseDate(it) } ?: return null
+        val startVal = str("startTime")?.let { safeParseTime(it) } ?: LocalTime.of(8, 0)
+        val endVal = str("endTime")?.let { safeParseTime(it) } ?: LocalTime.of(17, 0)
         DayEntry(
             id = key ?: return null,
             jobId = jobId,
-            date = LocalDate.parse(str("date")),
-            startTime = LocalTime.parse(str("startTime")),
-            endTime = LocalTime.parse(str("endTime")),
+            date = dateVal,
+            startTime = startVal,
+            endTime = endVal,
             pauseMinutes = lng("pauseMinutes") ?: 0L,
             isLeave = bool("isLeave") ?: false
         )
@@ -488,14 +606,15 @@ fun DataSnapshot.toDayEntry(jobId: String): DayEntry? {
 
 fun DataSnapshot.toDayTemplate(): DayTemplate? {
     return try {
-        val pauses = child("pauseMinutesList").children.mapNotNull {
-            it.getValue(Long::class.java) ?: it.getValue(Double::class.java)?.toLong()
+        val pauses = child("pauseMinutesList").children.mapNotNull { child ->
+            val v = child.value
+            if (v is Number) v.toLong() else null
         }
         DayTemplate(
             id = key ?: return null,
             name = str("name") ?: "",
-            startTime = LocalTime.parse(str("startTime")),
-            endTime = LocalTime.parse(str("endTime")),
+            startTime = str("startTime")?.let { safeParseTime(it) } ?: LocalTime.of(8, 0),
+            endTime = str("endTime")?.let { safeParseTime(it) } ?: LocalTime.of(17, 0),
             pauseBlocks = pauses.map { PauseBlock(it) }
         )
     } catch (e: Exception) { null }
@@ -539,20 +658,21 @@ fun DayTemplate.toMap(): Map<String, Any?> = mapOf(
 
 fun DataSnapshot.toAutoEntryRule(): AutoEntryRule? {
     return try {
-        val days = child("weekdays").children.mapNotNull {
-            (it.getValue(Long::class.java) ?: it.getValue(Double::class.java)?.toLong())?.toInt()
+        val days = child("weekdays").children.mapNotNull { child ->
+            val v = child.value
+            if (v is Number) v.toInt() else null
         }.toSet()
         AutoEntryRule(
             id = key ?: return null,
             templateId = str("templateId"),
             templateName = str("templateName") ?: "",
-            customStartTime = str("customStartTime")?.let { LocalTime.parse(it) },
-            customEndTime = str("customEndTime")?.let { LocalTime.parse(it) },
+            customStartTime = str("customStartTime")?.let { safeParseTime(it) },
+            customEndTime = str("customEndTime")?.let { safeParseTime(it) },
             customPauseMinutes = lng("customPauseMinutes") ?: 0L,
             active = bool("active") ?: true,
             mode = AutoEntryMode.valueOf(str("mode") ?: "UNTIL_DISABLED"),
-            startDate = str("startDate")?.let { LocalDate.parse(it) } ?: LocalDate.now(),
-            endDate = str("endDate")?.let { LocalDate.parse(it) },
+            startDate = str("startDate")?.let { safeParseDate(it) } ?: LocalDate.now(),
+            endDate = str("endDate")?.let { safeParseDate(it) },
             weekdays = days.ifEmpty { setOf(1, 2, 3, 4, 5) }
         )
     } catch (e: Exception) { null }

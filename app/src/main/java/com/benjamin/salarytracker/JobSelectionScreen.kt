@@ -40,20 +40,22 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.benjamin.salarytracker.ui.theme.*
 
-/** Label lisible du type de contrat */
+/** Label lisible du type de contrat (localisé) */
+@Composable
 fun ContractType.label(): String = when (this) {
-    ContractType.CDI -> "CDI"
-    ContractType.CDD -> "CDD"
-    ContractType.INTERIM -> "Intérim"
-    ContractType.MISSION -> "Mission"
-    ContractType.ALTERNANCE -> "Alternance"
-    ContractType.STAGE -> "Stage"
+    ContractType.CDI -> stringResource(R.string.ct_cdi)
+    ContractType.CDD -> stringResource(R.string.ct_cdd)
+    ContractType.INTERIM -> stringResource(R.string.ct_interim)
+    ContractType.MISSION -> stringResource(R.string.ct_mission)
+    ContractType.ALTERNANCE -> stringResource(R.string.ct_alternance)
+    ContractType.STAGE -> stringResource(R.string.ct_stage)
 }
 
 @Composable
@@ -85,8 +87,8 @@ fun JobSelectionScreen(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("MES EMPLOIS", color = InkMuted, fontSize = 11.sp, letterSpacing = 1.2.sp)
-                    Text("Sélection", color = Ink, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.js_my_jobs), color = InkMuted, fontSize = 11.sp, letterSpacing = 1.2.sp)
+                    Text(stringResource(R.string.js_selection), color = Ink, fontSize = 24.sp, fontWeight = FontWeight.Bold)
                 }
                 SquareIconButton(Icons.Default.Close, onClick = onBack)
             }
@@ -105,9 +107,9 @@ fun JobSelectionScreen(
                 ) {
                     Icon(Icons.Default.WorkOutline, null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f))
                     Spacer(Modifier.height(18.dp))
-                    Text("Aucune entreprise", color = Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+                    Text(stringResource(R.string.js_no_company), color = Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
                     Spacer(Modifier.height(6.dp))
-                    Text("Crée une entreprise pour commencer.", color = InkMuted, fontSize = 14.sp, textAlign = TextAlign.Center)
+                    Text(stringResource(R.string.js_create_company_hint), color = InkMuted, fontSize = 14.sp, textAlign = TextAlign.Center)
                 }
             } else {
                 // Une carte par entreprise (même sans contrat), dédupliquée par nom
@@ -146,7 +148,7 @@ fun JobSelectionScreen(
 
             Spacer(Modifier.height(8.dp))
             AppButton(
-                text = "Nouvelle entreprise",
+                text = stringResource(R.string.js_new_company),
                 onClick = onAddCompany,
                 leading = Icons.Default.Add,
                 modifier = Modifier.fillMaxWidth()
@@ -170,7 +172,7 @@ fun JobSelectionScreen(
                     )
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        text = if (showArchives) "Masquer les archives (${archivedJobs.size})" else "Voir les archives (${archivedJobs.size})",
+                        text = if (showArchives) stringResource(R.string.js_hide_archives, archivedJobs.size) else stringResource(R.string.js_show_archives, archivedJobs.size),
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.primary
                     )
@@ -178,7 +180,7 @@ fun JobSelectionScreen(
 
                 if (showArchives) {
                     Spacer(Modifier.height(16.dp))
-                    Text("Contrats passés / Archivés", color = InkMuted, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
+                    Text(stringResource(R.string.js_archived), color = InkMuted, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
                     Spacer(Modifier.height(8.dp))
                     archivedJobs.forEachIndexed { index, job ->
                         Appear(delayMillis = 40 * index) {
@@ -247,7 +249,7 @@ private fun CompanyGroup(
             Column(Modifier.weight(1f)) {
                 Text(companyName, color = Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                 Text(
-                    "${jobs.size} contrat${if (jobs.size > 1) "s" else ""}",
+                    stringResource(R.string.js_contracts_count, jobs.size),
                     color = InkMuted, fontSize = 12.sp
                 )
             }
@@ -263,7 +265,7 @@ private fun CompanyGroup(
             HorizontalDivider(color = OutlineLt, modifier = Modifier.padding(horizontal = 14.dp))
             if (jobs.isEmpty()) {
                 Text(
-                    "Aucun contrat — ajoutez-en un ci-dessous.",
+                    stringResource(R.string.js_no_contract),
                     color = InkMuted, fontSize = 12.sp,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
                 )
@@ -290,13 +292,13 @@ private fun CompanyGroup(
                 ) {
                     Icon(Icons.Default.Add, null, tint = accent, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(10.dp))
-                    Text("Ajouter un contrat", color = accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.js_add_contract), color = accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                 }
                 Box(
                     modifier = Modifier.size(38.dp).clip(RoundedCornerShape(12.dp)).clickable { showDeleteCompany = true },
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Default.DeleteOutline, "Supprimer l'entreprise", tint = Color(0xFFEF4444), modifier = Modifier.size(20.dp))
+                    Icon(Icons.Default.DeleteOutline, stringResource(R.string.js_delete_company), tint = Color(0xFFEF4444), modifier = Modifier.size(20.dp))
                 }
             }
             Spacer(Modifier.height(4.dp))
@@ -307,8 +309,8 @@ private fun CompanyGroup(
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { showDeleteCompany = false },
             icon = { Icon(Icons.Default.DeleteOutline, null, tint = Color(0xFFEF4444)) },
-            title = { androidx.compose.material3.Text("Supprimer l'entreprise ?") },
-            text = { androidx.compose.material3.Text("« $companyName » et ses ${jobs.size} contrat(s) (avec journées, templates, bulletins) seront définitivement supprimés.") },
+            title = { androidx.compose.material3.Text(stringResource(R.string.js_delete_company_q)) },
+            text = { androidx.compose.material3.Text(stringResource(R.string.js_delete_company_text, companyName, jobs.size)) },
             confirmButton = {
                 androidx.compose.material3.Button(
                     onClick = {
@@ -316,9 +318,9 @@ private fun CompanyGroup(
                         onDeleteCompany(company)
                     },
                     colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444), contentColor = Color.White)
-                ) { androidx.compose.material3.Text("Supprimer") }
+                ) { androidx.compose.material3.Text(stringResource(R.string.set_delete)) }
             },
-            dismissButton = { androidx.compose.material3.TextButton(onClick = { showDeleteCompany = false }) { androidx.compose.material3.Text("Annuler") } }
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { showDeleteCompany = false }) { androidx.compose.material3.Text(stringResource(R.string.common_cancel)) } }
         )
     }
 }
@@ -381,9 +383,11 @@ private fun JobRow(
             Spacer(Modifier.width(10.dp))
         }
         val totalHours = job.weeklyContractHours + job.includedOvertimeHours
+        val ctLabel = job.contractType.label()
+        val ctx = androidx.compose.ui.platform.LocalContext.current
         Column(Modifier.weight(1f)) {
             Text(
-                if (isCompact) "${fmtMoneyNum(job.hourlyRateBrut)} €/h · ${fmtMoneyNum(totalHours)} h/sem"
+                if (isCompact) stringResource(R.string.js_rate_hours, fmtMoneyNum(job.hourlyRateBrut), fmtMoneyNum(totalHours))
                 else job.name,
                 color = if (isCompact) InkMuted else Ink,
                 fontSize = if (isCompact) 13.sp else 15.sp,
@@ -392,16 +396,16 @@ private fun JobRow(
             )
             if (!isCompact) {
                 Text(
-                    "${job.contractType.label()} · ${fmtMoneyNum(job.hourlyRateBrut)} €/h · ${fmtMoneyNum(totalHours)} h/sem",
+                    stringResource(R.string.js_contract_detail, ctLabel, fmtMoneyNum(job.hourlyRateBrut), fmtMoneyNum(totalHours)),
                     color = InkMuted, fontSize = 12.sp
                 )
             }
             val dateText = remember(job.startDate, job.endDate) {
                 val formatter = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")
                 when {
-                    job.startDate != null && job.endDate != null -> "Du ${job.startDate.format(formatter)} au ${job.endDate.format(formatter)}"
-                    job.startDate != null -> "À partir du ${job.startDate.format(formatter)}"
-                    job.endDate != null -> "Jusqu'au ${job.endDate.format(formatter)}"
+                    job.startDate != null && job.endDate != null -> ctx.getString(R.string.js_date_range, job.startDate.format(formatter), job.endDate.format(formatter))
+                    job.startDate != null -> ctx.getString(R.string.js_date_from, job.startDate.format(formatter))
+                    job.endDate != null -> ctx.getString(R.string.js_date_until, job.endDate.format(formatter))
                     else -> null
                 }
             }
@@ -421,7 +425,7 @@ private fun JobRow(
                 modifier = Modifier.size(38.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceVariant).clickable { onAddContract() },
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Default.PostAdd, "Ajouter un contrat", tint = accent, modifier = Modifier.size(18.dp))
+                Icon(Icons.Default.PostAdd, stringResource(R.string.js_add_contract), tint = accent, modifier = Modifier.size(18.dp))
             }
             Spacer(Modifier.width(8.dp))
         }
@@ -430,7 +434,7 @@ private fun JobRow(
             modifier = Modifier.size(38.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceVariant).clickable { onEdit() },
             contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Default.Edit, "Modifier", tint = accent, modifier = Modifier.size(18.dp))
+            Icon(Icons.Default.Edit, stringResource(R.string.common_edit), tint = accent, modifier = Modifier.size(18.dp))
         }
         Spacer(Modifier.width(8.dp))
         // Emploi principal (étoile)
@@ -440,7 +444,7 @@ private fun JobRow(
         ) {
             Icon(
                 if (job.isMainJob) Icons.Default.Star else Icons.Default.StarBorder,
-                "Emploi principal",
+                stringResource(R.string.comp_main_job),
                 tint = if (job.isMainJob) Color(0xFFFFC107) else InkMuted,
                 modifier = Modifier.size(22.dp)
             )

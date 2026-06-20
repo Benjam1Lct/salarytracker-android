@@ -52,7 +52,7 @@ class SyncDataService(
                     val keys = updatedJson.keys()
                     while (keys.hasNext()) {
                         val key = keys.next()
-                        updatedAt[key] = updatedJson.getLong(key)
+                        updatedAt[key] = updatedJson.optLong(key, 0L)
                     }
                 }
                 val deletedJson = json.optJSONObject("deletedAt")
@@ -60,7 +60,7 @@ class SyncDataService(
                     val keys = deletedJson.keys()
                     while (keys.hasNext()) {
                         val key = keys.next()
-                        deletedAt[key] = deletedJson.getLong(key)
+                        deletedAt[key] = deletedJson.optLong(key, 0L)
                     }
                 }
             } catch (e: Exception) { android.util.Log.e("SyncDataService", "Error in remote sync", e) }
@@ -138,13 +138,13 @@ class SyncDataService(
         syncMutex.withLock {
             // --- 1. Lecture et parsing des données distantes ---
             val remoteDeleted = snapshot.child("deleted").children.associate {
-                it.key.toString() to (it.getValue(Long::class.java) ?: 0L)
+                it.key.toString() to it.lng()
             }.toMutableMap()
 
             val remoteCompanies = snapshot.child("companies").children.associate { child ->
                 val id = child.key.toString()
                 val name = child.child("name").getValue(String::class.java) ?: ""
-                val updatedAt = child.child("updatedAt").getValue(Long::class.java) ?: 0L
+                val updatedAt = child.lng("updatedAt")
                 id to (Company(id, name) to updatedAt)
             }
 
@@ -157,7 +157,7 @@ class SyncDataService(
             snapshot.child("jobs").children.forEach { jobChild ->
                 val jobId = jobChild.key.toString()
                 val job = jobChild.toJob()
-                val jobUpdatedAt = jobChild.child("updatedAt").getValue(Long::class.java) ?: 0L
+                val jobUpdatedAt = jobChild.lng("updatedAt")
                 if (job != null) {
                     remoteJobs[jobId] = job to jobUpdatedAt
                 }
@@ -165,7 +165,7 @@ class SyncDataService(
                 jobChild.child("days").children.forEach { entryChild ->
                     val entryId = entryChild.key.toString()
                     val entry = entryChild.toDayEntry(jobId)
-                    val entryUpdatedAt = entryChild.child("updatedAt").getValue(Long::class.java) ?: 0L
+                    val entryUpdatedAt = entryChild.lng("updatedAt")
                     if (entry != null) {
                         remoteEntries[entryId] = entry to entryUpdatedAt
                     }
@@ -174,7 +174,7 @@ class SyncDataService(
                 jobChild.child("templates").children.forEach { templateChild ->
                     val templateId = templateChild.key.toString()
                     val template = templateChild.toDayTemplate()
-                    val templateUpdatedAt = templateChild.child("updatedAt").getValue(Long::class.java) ?: 0L
+                    val templateUpdatedAt = templateChild.lng("updatedAt")
                     if (template != null) {
                         remoteTemplates[templateId] = Triple(template, jobId, templateUpdatedAt)
                     }
@@ -183,7 +183,7 @@ class SyncDataService(
                 jobChild.child("autoRules").children.forEach { ruleChild ->
                     val ruleId = ruleChild.key.toString()
                     val rule = ruleChild.toAutoEntryRule()
-                    val ruleUpdatedAt = ruleChild.child("updatedAt").getValue(Long::class.java) ?: 0L
+                    val ruleUpdatedAt = ruleChild.lng("updatedAt")
                     if (rule != null) {
                         remoteRules[ruleId] = Triple(rule, jobId, ruleUpdatedAt)
                     }
@@ -192,7 +192,7 @@ class SyncDataService(
                 jobChild.child("payslips").children.forEach { payslipChild ->
                     val payslipId = payslipChild.key.toString()
                     val payslip = payslipChild.toPayslip()
-                    val payslipUpdatedAt = payslipChild.child("updatedAt").getValue(Long::class.java) ?: 0L
+                    val payslipUpdatedAt = payslipChild.lng("updatedAt")
                     if (payslip != null) {
                         remotePayslips[payslipId] = Triple(payslip, jobId, payslipUpdatedAt)
                     }
@@ -287,7 +287,11 @@ class SyncDataService(
                 val tRemote = remotePair?.second ?: 0L
                 val tLocal = metadata.getUpdatedAt(id)
 
-                if (tDelete > 0L) {
+                // Le tombstone n'est effectif que s'il est plus récent que les deux côtés.
+                // Si l'élément a été recréé après (tRemote/tLocal > tDelete), on ignore le
+                // tombstone et on retombe sur le merge normal (sinon l'élément resterait en
+                // BD sans jamais être récupéré en local → invisible dans l'app).
+                if (tDelete > 0L && tDelete >= tRemote && tDelete >= tLocal) {
                     if (localItem != null && tDelete >= tLocal) {
                         local.deleteCompany(id)
                     }
@@ -321,7 +325,11 @@ class SyncDataService(
                 val tRemote = remotePair?.second ?: 0L
                 val tLocal = metadata.getUpdatedAt(id)
 
-                if (tDelete > 0L) {
+                // Le tombstone n'est effectif que s'il est plus récent que les deux côtés.
+                // Si l'élément a été recréé après (tRemote/tLocal > tDelete), on ignore le
+                // tombstone et on retombe sur le merge normal (sinon l'élément resterait en
+                // BD sans jamais être récupéré en local → invisible dans l'app).
+                if (tDelete > 0L && tDelete >= tRemote && tDelete >= tLocal) {
                     if (localItem != null && tDelete >= tLocal) {
                         local.deleteJob(id)
                     }
@@ -355,7 +363,11 @@ class SyncDataService(
                 val tRemote = remotePair?.second ?: 0L
                 val tLocal = metadata.getUpdatedAt(id)
 
-                if (tDelete > 0L) {
+                // Le tombstone n'est effectif que s'il est plus récent que les deux côtés.
+                // Si l'élément a été recréé après (tRemote/tLocal > tDelete), on ignore le
+                // tombstone et on retombe sur le merge normal (sinon l'élément resterait en
+                // BD sans jamais être récupéré en local → invisible dans l'app).
+                if (tDelete > 0L && tDelete >= tRemote && tDelete >= tLocal) {
                     if (localItem != null && tDelete >= tLocal) {
                         local.deleteDayEntry(localItem.jobId, id)
                     }
@@ -392,7 +404,11 @@ class SyncDataService(
                 val tRemote = remoteTriple?.third ?: 0L
                 val tLocal = metadata.getUpdatedAt(id)
 
-                if (tDelete > 0L) {
+                // Le tombstone n'est effectif que s'il est plus récent que les deux côtés.
+                // Si l'élément a été recréé après (tRemote/tLocal > tDelete), on ignore le
+                // tombstone et on retombe sur le merge normal (sinon l'élément resterait en
+                // BD sans jamais être récupéré en local → invisible dans l'app).
+                if (tDelete > 0L && tDelete >= tRemote && tDelete >= tLocal) {
                     if (localItem != null && localJobId != null && tDelete >= tLocal) {
                         local.deleteTemplate(localJobId, id)
                     }
@@ -430,7 +446,11 @@ class SyncDataService(
                 val tRemote = remoteTriple?.third ?: 0L
                 val tLocal = metadata.getUpdatedAt(id)
 
-                if (tDelete > 0L) {
+                // Le tombstone n'est effectif que s'il est plus récent que les deux côtés.
+                // Si l'élément a été recréé après (tRemote/tLocal > tDelete), on ignore le
+                // tombstone et on retombe sur le merge normal (sinon l'élément resterait en
+                // BD sans jamais être récupéré en local → invisible dans l'app).
+                if (tDelete > 0L && tDelete >= tRemote && tDelete >= tLocal) {
                     if (localItem != null && localJobId != null && tDelete >= tLocal) {
                         local.deleteAutoRule(localJobId, id)
                     }
@@ -468,7 +488,11 @@ class SyncDataService(
                 val tRemote = remoteTriple?.third ?: 0L
                 val tLocal = metadata.getUpdatedAt(id)
 
-                if (tDelete > 0L) {
+                // Le tombstone n'est effectif que s'il est plus récent que les deux côtés.
+                // Si l'élément a été recréé après (tRemote/tLocal > tDelete), on ignore le
+                // tombstone et on retombe sur le merge normal (sinon l'élément resterait en
+                // BD sans jamais être récupéré en local → invisible dans l'app).
+                if (tDelete > 0L && tDelete >= tRemote && tDelete >= tLocal) {
                     if (localItem != null && localJobId != null && tDelete >= tLocal) {
                         local.deletePayslip(localJobId, id)
                     }
@@ -495,7 +519,7 @@ class SyncDataService(
 
             // --- 10. Synchronisation des Paramètres ---
             val remoteTheme = snapshot.child("settings").child("appTheme").getValue(String::class.java)
-            val remoteThemeUpdatedAt = snapshot.child("settings").child("appThemeUpdatedAt").getValue(Long::class.java) ?: 0L
+            val remoteThemeUpdatedAt = snapshot.child("settings").lng("appThemeUpdatedAt")
 
             val localTheme = local.getAppTheme().first()
             val localThemeUpdatedAt = metadata.getUpdatedAt("appTheme")
@@ -511,8 +535,24 @@ class SyncDataService(
                 remote.fs.updateAppTheme(localTheme, localThemeUpdatedAt)
             }
 
+            // Langue de l'app (même stratégie que le thème)
+            val remoteLang = snapshot.child("settings").child("appLanguage").getValue(String::class.java)
+            val remoteLangUpdatedAt = snapshot.child("settings").lng("appLanguageUpdatedAt")
+            val localLang = local.getAppLanguage().first()
+            val localLangUpdatedAt = metadata.getUpdatedAt("appLanguage")
+            if (remoteLang != null) {
+                if (localLangUpdatedAt > remoteLangUpdatedAt) {
+                    remote.fs.updateAppLanguage(localLang, localLangUpdatedAt)
+                } else if (remoteLangUpdatedAt > localLangUpdatedAt) {
+                    local.updateAppLanguage(remoteLang)
+                    metadata.setUpdatedAt("appLanguage", remoteLangUpdatedAt)
+                }
+            } else if (localLang != "system") {
+                remote.fs.updateAppLanguage(localLang, localLangUpdatedAt)
+            }
+
             val remoteGeminiKey = snapshot.child("settings").child("geminiApiKey").getValue(String::class.java)
-            val remoteGeminiKeyUpdatedAt = snapshot.child("settings").child("geminiApiKeyUpdatedAt").getValue(Long::class.java) ?: 0L
+            val remoteGeminiKeyUpdatedAt = snapshot.child("settings").lng("geminiApiKeyUpdatedAt")
 
             val localGeminiKey = local.getGeminiApiKey()
             val localGeminiKeyUpdatedAt = metadata.getUpdatedAt("geminiApiKey")
@@ -527,6 +567,23 @@ class SyncDataService(
             } else if (localGeminiKey != null) {
                 remote.fs.saveGeminiApiKey(localGeminiKey, localGeminiKeyUpdatedAt)
             }
+        }
+    }
+
+    suspend fun forceSaveLocal() {
+        // 1. Sauvegarde locale immédiate sur le disque — ne dépend PAS du réseau.
+        local.forcePersist()
+
+        // 2. Tentative de réconciliation avec le serveur en best-effort :
+        //    si le réseau est absent ou lent, on n'échoue pas pour autant.
+        try {
+            val ref = activeRef ?: remote.fs.userRef
+            val snapshot = kotlinx.coroutines.withTimeout(5000) {
+                ref.get().await()
+            }
+            performSync(snapshot)
+        } catch (_: Exception) {
+            // Hors-ligne / timeout : la sauvegarde locale a déjà réussi.
         }
     }
 
@@ -548,6 +605,7 @@ class SyncDataService(
     override fun getAutoRules(jobId: String): Flow<List<AutoEntryRule>> = local.getAutoRules(jobId)
     override fun getPayslips(jobId: String): Flow<List<Payslip>> = local.getPayslips(jobId)
     override fun getAppTheme(): Flow<String> = local.getAppTheme()
+    override fun getAppLanguage(): Flow<String> = local.getAppLanguage()
     override suspend fun getGeminiApiKey(): String? = local.getGeminiApiKey()
 
     override suspend fun addCompany(company: Company) {
@@ -730,6 +788,15 @@ class SyncDataService(
         }
     }
 
+    override suspend fun updateAppLanguage(lang: String) {
+        local.updateAppLanguage(lang)
+        val now = System.currentTimeMillis()
+        metadataManager?.setUpdatedAt("appLanguage", now)
+        syncScope.launch {
+            try { remote.fs.updateAppLanguage(lang, now) } catch (e: Exception) { android.util.Log.e("SyncDataService", "Error in remote sync", e) }
+        }
+    }
+
     override suspend fun saveGeminiApiKey(key: String) {
         local.saveGeminiApiKey(key)
         val now = System.currentTimeMillis()
@@ -737,6 +804,25 @@ class SyncDataService(
         syncScope.launch {
             try { remote.fs.saveGeminiApiKey(key, now) } catch (e: Exception) { android.util.Log.e("SyncDataService", "Error in remote sync", e) }
         }
+    }
+}
+
+private fun DataSnapshot.lng(key: String): Long {
+    val childSnap = child(key)
+    val value = childSnap.value ?: return 0L
+    return when (value) {
+        is Number -> value.toLong()
+        is String -> value.toLongOrNull() ?: 0L
+        else -> 0L
+    }
+}
+
+private fun DataSnapshot.lng(): Long {
+    val value = value ?: return 0L
+    return when (value) {
+        is Number -> value.toLong()
+        is String -> value.toLongOrNull() ?: 0L
+        else -> 0L
     }
 }
 

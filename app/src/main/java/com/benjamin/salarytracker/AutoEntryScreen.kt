@@ -26,6 +26,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -44,6 +46,7 @@ fun AutoEntryScreen(
     templates: List<DayTemplate>,
     autoRules: List<AutoEntryRule>,
     connectionStatus: ConnectionStatus,
+    isSubscribed: Boolean = false,
     onAddRule: (AutoEntryRule) -> Unit,
     onDeleteRule: (String) -> Unit,
     onSettings: () -> Unit,
@@ -69,10 +72,10 @@ fun AutoEntryScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("AUTOMATISATION", color = InkMuted, fontSize = 11.sp, letterSpacing = 1.2.sp)
-                        Text("Saisie automatique", color = Ink, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.ae_header), color = InkMuted, fontSize = 11.sp, letterSpacing = 1.2.sp)
+                        Text(stringResource(R.string.ae_title), color = Ink, fontSize = 24.sp, fontWeight = FontWeight.Bold)
                     }
-                    SquareIconButton(Icons.Default.Settings, onClick = onSettings, active = false)
+                    ProfileIconButton(isSubscribed = isSubscribed, onClick = onSettings)
                     Spacer(Modifier.width(10.dp))
                     SquareIconButton(Icons.Default.Work, onClick = onSelectJob, active = true)
                 }
@@ -83,7 +86,7 @@ fun AutoEntryScreen(
             // ── Règles actives (TOUT EN HAUT) ──
             Appear(80) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Règles en cours", color = Ink, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.ae_active_rules), color = Ink, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.width(8.dp))
                     Box(
                         modifier = Modifier.clip(RoundedCornerShape(50)).background(PurpleTint).padding(horizontal = 8.dp, vertical = 2.dp)
@@ -98,7 +101,7 @@ fun AutoEntryScreen(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.Autorenew, null, tint = InkMuted, modifier = Modifier.size(20.dp))
                             Spacer(Modifier.width(10.dp))
-                            Text("Aucune règle active pour le moment.", color = InkMuted, fontSize = 14.sp)
+                            Text(stringResource(R.string.ae_no_active), color = InkMuted, fontSize = 14.sp)
                         }
                     }
                 }
@@ -124,10 +127,10 @@ fun AutoEntryScreen(
                 label = "FormTransition"
             ) { isExpanded ->
                 if (!isExpanded) {
-                    AppButton("Ajouter une règle", onClick = { expanded = true }, leading = Icons.Default.Add, modifier = Modifier.fillMaxWidth())
+                    AppButton(stringResource(R.string.ae_add_rule), onClick = { expanded = true }, leading = Icons.Default.Add, modifier = Modifier.fillMaxWidth())
                 } else {
                     Column {
-                        Text("Nouvelle règle", color = Ink, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.ae_new_rule), color = Ink, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                         Spacer(Modifier.height(10.dp))
                         AppCard(padding = 18.dp) {
                             AutoEntryForm(
@@ -159,13 +162,14 @@ private fun ActiveRuleCard(rule: AutoEntryRule, onDeleteRule: (String) -> Unit) 
             }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text(rule.templateName.ifBlank { "Règle" }, color = Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                val days = rule.weekdays.sorted().joinToString(" ") { WEEKDAY_LABELS[it - 1] }
+                val wl = stringArrayResource(R.array.weekday_letters)
+                Text(rule.templateName.ifBlank { stringResource(R.string.ae_rule_fallback) }, color = Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                val days = rule.weekdays.sorted().joinToString(" ") { wl[it - 1] }
                 val periodTxt = when (rule.mode) {
-                    AutoEntryMode.UNTIL_DISABLED -> "Depuis ${rule.startDate.format(dateFmt)}"
-                    AutoEntryMode.PERIOD -> "${rule.startDate.format(dateFmt)} → ${rule.endDate?.format(dateFmt) ?: "?"}"
+                    AutoEntryMode.UNTIL_DISABLED -> stringResource(R.string.ae_since, rule.startDate.format(dateFmt))
+                    AutoEntryMode.PERIOD -> stringResource(R.string.ae_period, rule.startDate.format(dateFmt), rule.endDate?.format(dateFmt) ?: "?")
                 }
-                Text("$periodTxt", color = InkMuted, fontSize = 12.sp)
+                Text(periodTxt, color = InkMuted, fontSize = 12.sp)
                 Spacer(Modifier.height(4.dp))
                 Text(days, color = PurpleDeep, fontSize = 11.sp, fontWeight = FontWeight.Medium)
             }
@@ -173,7 +177,7 @@ private fun ActiveRuleCard(rule: AutoEntryRule, onDeleteRule: (String) -> Unit) 
                 modifier = Modifier.size(36.dp).clip(RoundedCornerShape(11.dp)).background(NegRed.copy(alpha = 0.10f)).clickable { onDeleteRule(rule.id) },
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Default.Close, "Supprimer", tint = NegRed, modifier = Modifier.size(18.dp))
+                Icon(Icons.Default.Close, stringResource(R.string.set_delete), tint = NegRed, modifier = Modifier.size(18.dp))
             }
         }
     }
@@ -216,18 +220,18 @@ private fun AutoEntryForm(
                         if (picking == "start") startDate = d else endDate = d
                     }
                     picking = null
-                }) { Text("Confirmer") }
+                }) { Text(stringResource(R.string.common_confirm)) }
             },
-            dismissButton = { TextButton(onClick = { picking = null }) { Text("Annuler") } }
+            dismissButton = { TextButton(onClick = { picking = null }) { Text(stringResource(R.string.common_cancel)) } }
         ) { DatePicker(state = state) }
     }
 
     Column {
         // Source
-        FormLabel("Source")
+        FormLabel(stringResource(R.string.ae_source))
         if (templates.isNotEmpty()) {
             SegmentedToggle(
-                options = listOf("Template", "Journée custom"),
+                options = listOf(stringResource(R.string.ae_template), stringResource(R.string.ae_custom_day)),
                 selected = if (useCustom) 1 else 0,
                 onSelect = { useCustom = it == 1 },
                 modifier = Modifier.fillMaxWidth()
@@ -239,37 +243,38 @@ private fun AutoEntryForm(
             TemplateChips(templates = templates, selectedTemplate = selectedTemplate, onTemplateSelect = { selectedTemplate = it })
         } else {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                TimePickerField("Début", customStart, { customStart = it }, Modifier.weight(1f))
-                TimePickerField("Fin", customEnd, { customEnd = it }, Modifier.weight(1f))
+                TimePickerField(stringResource(R.string.add_start), customStart, { customStart = it }, Modifier.weight(1f))
+                TimePickerField(stringResource(R.string.add_end), customEnd, { customEnd = it }, Modifier.weight(1f))
             }
             Spacer(Modifier.height(10.dp))
             AppTextField(
                 value = customPause,
                 onValueChange = { customPause = it.filter { c -> c.isDigit() } },
-                placeholder = "Pause (min)",
+                placeholder = stringResource(R.string.ae_pause_min),
                 keyboardType = KeyboardType.Number,
                 modifier = Modifier.fillMaxWidth()
             )
         }
 
         Spacer(Modifier.height(18.dp))
-        FormLabel("Récurrence")
+        FormLabel(stringResource(R.string.ae_recurrence))
         SegmentedToggle(
-            options = listOf("Sans fin", "Période"),
+            options = listOf(stringResource(R.string.ae_endless), stringResource(R.string.ae_period_opt)),
             selected = if (mode == AutoEntryMode.PERIOD) 1 else 0,
             onSelect = { mode = if (it == 1) AutoEntryMode.PERIOD else AutoEntryMode.UNTIL_DISABLED },
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(Modifier.height(10.dp))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            PickerField("Début", startDate.format(dateFmt), Icons.Default.CalendarMonth, Modifier.weight(1f)) { picking = "start" }
+            PickerField(stringResource(R.string.add_start), startDate.format(dateFmt), Icons.Default.CalendarMonth, Modifier.weight(1f)) { picking = "start" }
             if (mode == AutoEntryMode.PERIOD) {
-                PickerField("Fin", endDate.format(dateFmt), Icons.Default.EventBusy, Modifier.weight(1f)) { picking = "end" }
+                PickerField(stringResource(R.string.add_end), endDate.format(dateFmt), Icons.Default.EventBusy, Modifier.weight(1f)) { picking = "end" }
             }
         }
 
         Spacer(Modifier.height(18.dp))
-        FormLabel("Jours de travail")
+        FormLabel(stringResource(R.string.ae_workdays))
+        val weekdayLetters = stringArrayResource(R.array.weekday_letters)
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             (1..7).forEach { day ->
                 val selected = day in weekdays
@@ -280,25 +285,26 @@ private fun AutoEntryForm(
                         .clickable { weekdays = if (selected) weekdays - day else weekdays + day },
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(WEEKDAY_LABELS[day - 1], color = if (selected) CardWhite else InkMuted, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Text(weekdayLetters[day - 1], color = if (selected) CardWhite else InkMuted, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
 
         Spacer(Modifier.height(22.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            AppButton("Annuler", onClick = onCancel, filled = false, modifier = Modifier.weight(1f))
-            AppButton("Activer", onClick = {
+            AppButton(stringResource(R.string.common_cancel), onClick = onCancel, filled = false, modifier = Modifier.weight(1f))
+            val customNameTpl = stringResource(R.string.ae_custom_name)
+            AppButton(stringResource(R.string.ae_activate), onClick = {
                 val tmpl = selectedTemplate
                 when {
-                    !useCustom && tmpl == null -> Toast.makeText(context, "Choisis un template", Toast.LENGTH_SHORT).show()
-                    useCustom && !customEnd.isAfter(customStart) -> Toast.makeText(context, "La fin doit être après le début", Toast.LENGTH_SHORT).show()
-                    weekdays.isEmpty() -> Toast.makeText(context, "Sélectionne au moins un jour", Toast.LENGTH_SHORT).show()
-                    mode == AutoEntryMode.PERIOD && !endDate.isAfter(startDate) -> Toast.makeText(context, "La fin doit être après le début", Toast.LENGTH_SHORT).show()
+                    !useCustom && tmpl == null -> Toast.makeText(context, context.getString(R.string.ae_pick_template), Toast.LENGTH_SHORT).show()
+                    useCustom && !customEnd.isAfter(customStart) -> Toast.makeText(context, context.getString(R.string.ae_end_after_start), Toast.LENGTH_SHORT).show()
+                    weekdays.isEmpty() -> Toast.makeText(context, context.getString(R.string.ae_pick_day), Toast.LENGTH_SHORT).show()
+                    mode == AutoEntryMode.PERIOD && !endDate.isAfter(startDate) -> Toast.makeText(context, context.getString(R.string.ae_end_after_start), Toast.LENGTH_SHORT).show()
                     else -> {
                         val rule = if (useCustom) AutoEntryRule(
                             templateId = null,
-                            templateName = "Journée perso ($customStart–$customEnd)",
+                            templateName = String.format(customNameTpl, customStart.toString(), customEnd.toString()),
                             customStartTime = customStart, customEndTime = customEnd,
                             customPauseMinutes = customPause.toLongOrNull() ?: 0L,
                             active = true, mode = mode, startDate = startDate,
@@ -309,7 +315,7 @@ private fun AutoEntryForm(
                             endDate = if (mode == AutoEntryMode.PERIOD) endDate else null, weekdays = weekdays
                         )
                         onAddRule(rule)
-                        Toast.makeText(context, "Saisie automatique activée ✓", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, context.getString(R.string.ae_activated), Toast.LENGTH_SHORT).show()
                     }
                 }
             }, leading = Icons.Default.Bolt, modifier = Modifier.weight(1.6f))
@@ -340,5 +346,3 @@ private fun PickerField(label: String, value: String, icon: ImageVector, modifie
         }
     }
 }
-
-private val WEEKDAY_LABELS = listOf("L", "M", "M", "J", "V", "S", "D")
