@@ -1,0 +1,64 @@
+{
+  "project_info": {
+    "project_number": "674373401351",
+    "firebase_url": "https://salarytracker-879e4-default-rtdb.europe-west1.firebasedatabase.app",
+    "project_id": "salarytracker-879e4",
+    "storage_bucket": "salarytracker-879e4.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:674373401351:android:d466a1036aa8e98f28e3a2",
+        "android_client_info": {
+          "package_name": "com.benjamin.salarytracker"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "674373401351-i43aa3997huv4l0njm8f8rn2v3np24ig.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.benjamin.salarytracker",
+            "certificate_hash": "79bc419f39fb8491a8a97dd4cd175bed81ae049d"
+          }
+        },
+        {
+          "client_id": "674373401351-pd8r66r36gq3f73em6sehn6vmd21r2no.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.benjamin.salarytracker",
+            "certificate_hash": "e7525659b68eafb5bb20ddf25b718ec1eb57afef"
+          }
+        },
+        {
+          "client_id": "674373401351-uhtnl0obupp2jda705kd0cqnbhji63e2.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.benjamin.salarytracker",
+            "certificate_hash": "5c575acb958ade573a10cac9840fb0993173ad60"
+          }
+        },
+        {
+          "client_id": "674373401351-7lmk0k5rj3i3tiho0tatr20e0qsv1p30.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCLL5rPwZ2pLMbZUf7RzUi4EdKHAiB_CSw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "674373401351-7lmk0k5rj3i3tiho0tatr20e0qsv1p30.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
